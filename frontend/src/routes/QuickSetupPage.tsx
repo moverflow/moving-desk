@@ -1,4 +1,4 @@
-import type { JSX, FormEvent, ChangeEvent } from 'react'
+import type { JSX, FormEvent } from 'react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import LogoUpload from '@/components/shared/LogoUpload'
 
 const TIMEZONES = [
   { value: 'America/New_York', label: 'America/New_York (ET)' },
@@ -23,20 +24,7 @@ const TIMEZONES = [
 
 export default function QuickSetupPage(): JSX.Element {
   const navigate = useNavigate()
-  const [logoPreview, setLogoPreview] = useState<string | null>(null)
   const [timezone, setTimezone] = useState('America/New_York')
-
-  function handleLogoChange(e: ChangeEvent<HTMLInputElement>): void {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onloadend = () => {
-      if (typeof reader.result === 'string') {
-        setLogoPreview(reader.result)
-      }
-    }
-    reader.readAsDataURL(file)
-  }
 
   function handleSubmit(e: FormEvent<HTMLFormElement>): void {
     e.preventDefault()
@@ -52,40 +40,7 @@ export default function QuickSetupPage(): JSX.Element {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label>Company logo</Label>
-              {logoPreview !== null ? (
-                <div className="flex items-center gap-3">
-                  <img
-                    src={logoPreview}
-                    alt="Logo preview"
-                    className="h-16 w-16 rounded-md object-cover border"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setLogoPreview(null)}
-                    className="text-sm text-muted-foreground hover:text-foreground"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ) : (
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleLogoChange}
-                  className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-200 cursor-pointer"
-                />
-              )}
-              <button
-                type="button"
-                onClick={() => navigate('/orders')}
-                className="block text-sm text-muted-foreground underline-offset-4 hover:underline hover:text-foreground"
-              >
-                Skip for now
-              </button>
-            </div>
-
+            <LogoUpload onSkip={() => navigate('/orders')} />
             <div className="space-y-1.5">
               <Label>Timezone</Label>
               <Select value={timezone} onValueChange={setTimezone}>
@@ -94,18 +49,13 @@ export default function QuickSetupPage(): JSX.Element {
                 </SelectTrigger>
                 <SelectContent>
                   {TIMEZONES.map(({ value, label }) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-
             <div className="flex flex-col gap-3">
-              <Button type="submit" className="w-full">
-                Let's go →
-              </Button>
+              <Button type="submit" className="w-full">Let's go →</Button>
               <button
                 type="button"
                 onClick={() => navigate('/orders')}
