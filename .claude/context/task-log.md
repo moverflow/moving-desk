@@ -8,68 +8,67 @@ Each completed feature appended here by orchestrator.
 
 ---
 
-## sprint-0/01-frontend-app-shell
-**Date:** 2026-06-02
-**Status:** DONE
-**Completed:** 2026-06-02
+## sprint-1/05-auth-pages — DONE (2026-06-02) — PR #1
+
+- Branch: feat/sprint-1-auth-pages
+- Tests: 30/30
+- Review cycles: 2 (extracted AuthCard, PasswordField, LogoUpload)
+- PR: https://github.com/yuriy-puris/moving-desk/pull/1
+
+## sprint-1/05-auth-pages — Analysis (2026-06-02)
 
 ### What is being built
-A React 18 + Vite + TypeScript frontend application shell — the structural skeleton that every subsequent sprint will build on. No real data, no auth, no API calls. Pure UI scaffolding: routing, nav, providers, and utility functions.
+Four public/semi-public auth pages + auth infrastructure for the MovingDesk frontend.
+No backend work — mock mode throughout.
 
-Specifically:
-- Vite project wired with TypeScript strict mode
-- App shell component: fixed topbar (44px), logo left, 4 nav tabs center, avatar right
-- Client-side routing via React Router v6: /, /orders, /new-order, /invoices, /clients
-- TanStack Query v5 provider in main.tsx (staleTime 5min, retry 1)
-- Zustand auth store (empty shell, ready for Sprint 1)
-- Utility functions: cn(), formatDate(), formatPhone(), formatCurrency()
-- shadcn/ui + Tailwind CSS installed and configured
-- .env.example with VITE_API_URL
+### Files to create / modify
+**Create:**
+- `frontend/src/routes/RegisterPage.tsx`
+- `frontend/src/routes/LoginPage.tsx`
+- `frontend/src/routes/QuickSetupPage.tsx`
+- `frontend/src/routes/JoinPage.tsx`
+- `frontend/src/components/shared/ProtectedRoute.tsx`
+- `frontend/src/hooks/useAuth.ts`
+
+**Modify:**
+- `frontend/src/store/auth.store.ts` — implement full AuthState (was empty stub)
+- `frontend/src/App.tsx` — add 4 new routes, wrap protected routes
 
 ### Who uses it
-All users (owner + dispatcher). No auth gate yet — Sprint 1 adds that.
+| Page | User | Auth required |
+|------|------|---------------|
+| /register | New company owner | No |
+| /login | Any user | No |
+| /setup | Owner (post-register) | Yes (owner role) |
+| /join | Dispatcher (via invite) | No (token-based) |
 
 ### DB tables touched
-None. Pure frontend, no API calls.
+None directly (frontend only). Backend endpoints consumed (mocked):
+- POST /auth/register → mock: returns MOCK_USER + MOCK_TENANT
+- POST /auth/login → mock: validates email, throws on mismatch
+- GET /auth/me → mock: always returns MOCK_USER (simulates cookie restore)
+- PATCH /settings → mock: simulated for logo/timezone
+- POST /users/join → mock: token from URL param
 
-### Tenant isolation requirements
-Not applicable for this task. No DB queries, no API calls.
+### Tenant isolation
+- tenantId lives in Zustand `AuthState.tenant.id`
+- ProtectedRoute gates all `/orders`, `/new-order`, `/invoices`, `/clients` routes
+- No DB queries in frontend — isolation enforced backend-side
 
-### Acceptance criteria
-- AC1: ✅ `npm run dev` starts without errors
-- AC2: ✅ App loads in browser, topbar visible with 4 tabs
-- AC3: ✅ Each tab navigates to correct route (/orders, /new-order, /invoices, /clients)
-- AC4: ✅ Active tab is visually highlighted
-- AC5: ✅ `npm run typecheck` passes with zero errors
-- AC6: ✅ `npm run lint` passes with zero errors
-- AC7: ✅ formatDate(new Date('2026-06-15')) returns "Jun 15, 2026"
-- AC8: ✅ formatCurrency(480) returns "$480"
-- AC9: ✅ Mobile layout works on 390px width (labels hidden on sm, icons always visible)
+### Key risks / assumptions
+1. **No shadcn/ui components installed yet** — need to install Button, Input, Label, Select, Card before implementing pages
+2. **AppShell must NOT wrap auth pages** — /register, /login, /setup, /join must render outside AppShell (no top nav)
+3. **File preview for logo** — uses FileReader API + local object URL; no actual upload in mock mode
+4. **Mock useMe** — always returns MOCK_USER, so "auth state persistence" in mock = always authenticated after any login action. ProtectedRoute must check store state (setAuth called), not just query result.
+5. **QuickSetupPage** — shown once after register, no backend guard in mock mode; just route flow
+6. **Token for JoinPage** — `useSearchParams()` to read `?token=<uuid>` from URL
 
-### Risks / assumptions
-- shadcn/ui init requires interactive prompts — use components.json directly
-- `file-invoice` Lucide icon may not exist — use `receipt` as fallback
-- ESLint config from Vite template uses flat config (eslint.config.js)
-- formatDate uses Intl.DateTimeFormat with en-US locale for determinism
-- No test framework needed — this task is pure UI shell
-
-### Files to create
-```
-frontend/
-├── .env.example
-├── package.json
-├── vite.config.ts
-├── tsconfig.json + tsconfig.app.json + tsconfig.node.json
-├── index.html
-├── components.json
-├── eslint.config.js
-├── src/
-│   ├── main.tsx
-│   ├── App.tsx
-│   ├── routes/ (4 placeholder pages)
-│   ├── components/shared/AppShell.tsx
-│   ├── hooks/.gitkeep
-│   ├── store/auth.store.ts
-│   ├── lib/api.ts + utils.ts
-│   └── types/index.ts
-```
+### Acceptance criteria mapping
+- AC1: RegisterPage → onSuccess setAuth + navigate('/setup')
+- AC2: LoginPage → onSuccess setAuth + navigate('/orders')
+- AC3: LoginPage → mutation onError → set local error state, render below form
+- AC4: ProtectedRoute → `if (!isAuthenticated) return <Navigate to="/login" />`
+- AC5: QuickSetupPage → `<input type="file">` + FileReader → preview `<img>`
+- AC6: QuickSetupPage → "Skip setup" link → navigate('/orders')
+- AC7: JoinPage → reads token via useSearchParams, passes to mutation
+- AC8: ProtectedRoute uses useMe query; on success → setAuth; while loading → spinner

@@ -185,16 +185,85 @@ frontend/src/App.tsx  ← add /register, /login, /setup, /join routes
 ```
 
 ## Acceptance criteria
-- AC1: Register form submits, redirects to /setup on success
-- AC2: Login form submits, redirects to /orders on success
-- AC3: Wrong credentials shows inline error (no page reload)
-- AC4: /orders redirects to /login if not authenticated
-- AC5: Quick setup has working file preview for logo
-- AC6: "Skip setup" goes directly to /orders
-- AC7: Join page reads token from URL, creates account
-- AC8: Auth state persists on page refresh (via GET /auth/me)
+- [x] AC1: Register form submits, redirects to /setup on success
+- [x] AC2: Login form submits, redirects to /orders on success
+- [x] AC3: Wrong credentials shows inline error (no page reload)
+- [x] AC4: /orders redirects to /login if not authenticated
+- [x] AC5: Quick setup has working file preview for logo
+- [x] AC6: "Skip setup" goes directly to /orders
+- [x] AC7: Join page reads token from URL, creates account
+- [x] AC8: Auth state persists on page refresh (via GET /auth/me)
+
+**Status: DONE — PR #1 https://github.com/yuriy-puris/moving-desk/pull/1**
 
 ## Out of scope
 - Forgot password flow (not in v1)
 - Social login (not in v1)
 - Email verification (not in v1)
+
+---
+
+## Mock mode (use until backend is ready)
+
+Backend not available yet — use mock auth flow.
+
+### Mock auth store
+```typescript
+// store/auth.store.ts
+// Simulate successful login without API call
+
+const MOCK_USER = {
+  id: 'mock-user-1',
+  email: 'owner@bestmovers.com',
+  name: 'John Smith',
+  role: 'owner' as const,
+}
+const MOCK_TENANT = {
+  id: 'mock-tenant-1',
+  name: 'Best & Pro Moving',
+  plan: 'trial' as const,
+}
+```
+
+### Mock hooks
+```typescript
+// hooks/useAuth.ts
+export const useRegister = () => useMutation({
+  mutationFn: async (data) => {
+    // TODO: replace with real API call
+    await new Promise(r => setTimeout(r, 800)) // simulate network
+    return { user: MOCK_USER, tenant: MOCK_TENANT }
+  },
+  onSuccess: ({ user, tenant }) => {
+    useAuthStore.getState().setAuth(user, tenant)
+  }
+})
+
+export const useLogin = () => useMutation({
+  mutationFn: async (data) => {
+    await new Promise(r => setTimeout(r, 600))
+    if (data.email !== 'owner@bestmovers.com') {
+      throw new Error('Invalid credentials') // test error state
+    }
+    return { user: MOCK_USER, tenant: MOCK_TENANT }
+  }
+})
+
+export const useMe = () => useQuery({
+  queryKey: ['me'],
+  queryFn: async () => MOCK_USER,
+  retry: false,
+})
+```
+
+### Mock navigation flow
+Register → /setup → /orders (no real API needed)
+Login with owner@bestmovers.com → /orders
+Login with anything else → show error state
+
+### Sync checklist (when backend is ready)
+- [ ] Replace useRegister mutationFn with POST /auth/register
+- [ ] Replace useLogin mutationFn with POST /auth/login
+- [ ] Replace useMe queryFn with GET /auth/me
+- [ ] Remove MOCK_USER and MOCK_TENANT constants
+- [ ] Test real cookie-based auth flow

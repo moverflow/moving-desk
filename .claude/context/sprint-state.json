@@ -1,15 +1,15 @@
 {
-  "current_sprint": 0,
-  "sprint_name": "Project setup & infrastructure",
-  "started_at": "2026-06-02T00:00:00Z",
+  "current_sprint": 1,
+  "sprint_name": "Auth & core flows",
+  "started_at": "2026-06-02",
   "status": "in_progress",
-  "current_feature": "sprint-0/02-backend-init",
-  "pipeline_step": "pending",
-  "review_cycles": 0,
+  "current_feature": "sprint-1/05-auth-pages",
+  "pipeline_step": "done",
+  "review_cycles": 2,
   "blocked": false,
   "blocked_at": null,
   "blocked_reason": null,
   "features_total": 13,
   "features_done": 1,
-  "last_updated": "2026-06-02T00:00:00Z"
+  "last_updated": "2026-06-02"
 }
