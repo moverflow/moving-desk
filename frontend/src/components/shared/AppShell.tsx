@@ -1,11 +1,7 @@
-import type { JSX, ReactNode } from 'react'
-import { NavLink } from 'react-router-dom'
+import type { JSX } from 'react'
+import { NavLink, Outlet } from 'react-router-dom'
 import { Kanban, Plus, Receipt, Users, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
-
-interface AppShellProps {
-  children: ReactNode
-}
 
 interface NavItem {
   to: string
@@ -20,7 +16,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/clients', label: 'Clients', Icon: Users },
 ]
 
-export default function AppShell({ children }: AppShellProps): JSX.Element {
+export default function AppShell(): JSX.Element {
   return (
     <div className="min-h-screen flex flex-col">
       <header
@@ -59,7 +55,9 @@ export default function AppShell({ children }: AppShellProps): JSX.Element {
         </div>
       </header>
 
-      <main className="flex-1">{children}</main>
+      <main className="flex-1">
+        <Outlet />
+      </main>
     </div>
   )
 }
