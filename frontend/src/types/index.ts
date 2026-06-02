@@ -42,6 +42,36 @@ export interface Crew {
   truckLabel: string
 }
 
+export type InvoiceStatus = 'draft' | 'sent' | 'paid'
+
+export interface Invoice {
+  id: string
+  tenantId: string
+  orderId: string
+  number: string
+  status: InvoiceStatus
+  clientName: string
+  clientPhone: string
+  fromAddress: string
+  toAddress: string
+  moveDate: string
+  homeSize: string
+  packing: boolean
+  basePrice: number
+  totalPrice: number
+  shareToken: string
+  sentAt?: string
+  paidAt?: string
+  createdAt: string
+}
+
+export interface Company {
+  name: string
+  phone: string
+  website: string
+  logoUrl: string | null
+}
+
 export interface CreateOrderData {
   clientName: string
   phone: string

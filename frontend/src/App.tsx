@@ -10,6 +10,7 @@ import RegisterPage from '@/routes/RegisterPage'
 import LoginPage from '@/routes/LoginPage'
 import QuickSetupPage from '@/routes/QuickSetupPage'
 import JoinPage from '@/routes/JoinPage'
+import PublicInvoicePage from '@/routes/PublicInvoicePage'
 
 export default function App(): JSX.Element {
   return (
@@ -18,6 +19,7 @@ export default function App(): JSX.Element {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/setup" element={<QuickSetupPage />} />
       <Route path="/join" element={<JoinPage />} />
+      <Route path="/i/:token" element={<PublicInvoicePage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
           <Route path="/" element={<Navigate to="/orders" replace />} />
