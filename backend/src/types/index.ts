@@ -15,6 +15,13 @@ export interface TenantSettings {
   baseRates: Record<string, number>
 }
 
+export type AppVariables = {
+  userId: string
+  tenantId: string
+  role: string
+  plan: string
+}
+
 export interface JwtPayload {
   sub: string
   tenantId: string
