@@ -3,8 +3,10 @@ import { cors } from 'hono/cors'
 import { logger as honoLogger } from 'hono/logger'
 import { env } from './lib/env'
 import { logger } from './lib/logger'
+import auth from './routes/auth'
 
 const app = new Hono()
+app.route('/auth', auth)
 
 app.use(
   '*',
