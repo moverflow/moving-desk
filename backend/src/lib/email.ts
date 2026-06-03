@@ -4,6 +4,19 @@ import { logger } from './logger'
 
 const resend = new Resend(env.RESEND_API_KEY)
 
+export function sendInviteEmail(email: string, token: string): void {
+  resend.emails
+    .send({
+      from: 'MovingDesk <hello@movingdesk.app>',
+      to: email,
+      subject: "You've been invited to MovingDesk",
+      text: `You've been invited to join MovingDesk.\n\nClick to accept: ${env.FRONTEND_URL}/join?token=${token}\n\nThis link expires in 48 hours.`,
+    })
+    .catch((err: unknown) => {
+      logger.error({ err }, 'Failed to send invite email')
+    })
+}
+
 export function sendWelcomeEmail(email: string, name: string): void {
   resend.emails
     .send({
