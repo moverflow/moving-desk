@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { sendWelcomeEmail } from '../lib/email'
 import { env } from '../lib/env'
 import { signToken } from '../lib/jwt'
+import { authMiddleware } from '../middleware/auth'
 import {
   findUserByEmail,
   generateUniqueSlug,
@@ -171,6 +172,17 @@ auth.post('/login', async (c) => {
       plan: row.plan ?? 'trial',
     },
   })
+})
+
+auth.post('/logout', authMiddleware, async (c) => {
+  setCookie(c, 'token', '', {
+    httpOnly: true,
+    sameSite: 'Lax',
+    path: '/',
+    maxAge: 0,
+    secure: env.NODE_ENV === 'production',
+  })
+  return c.json({ message: 'Logged out' })
 })
 
 export default auth
