@@ -9,6 +9,10 @@ const schema = z.object({
   FRONTEND_URL: z.string().url(),
   PORT: z.coerce.number().default(3000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  STRIPE_SECRET_KEY: z.string().default(''),
+  STRIPE_WEBHOOK_SECRET: z.string().default(''),
+  STRIPE_BASIC_PRICE_ID: z.string().default(''),
+  STRIPE_PRO_PRICE_ID: z.string().default(''),
 })
 
 export const env = schema.parse(process.env)
