@@ -5,6 +5,7 @@ import { env } from './lib/env'
 import { logger } from './lib/logger'
 import auth from './routes/auth'
 import crews from './routes/crews'
+import invoices from './routes/invoices'
 import orders from './routes/orders'
 import users from './routes/users'
 
@@ -13,6 +14,7 @@ app.route('/auth', auth)
 app.route('/users', users)
 app.route('/orders', orders)
 app.route('/crews', crews)
+app.route('/invoices', invoices)
 
 app.use(
   '*',
