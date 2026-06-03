@@ -11,6 +11,8 @@ import {
   createInvite,
   findInviteByToken,
   joinWithInvite,
+  listTeam,
+  removeUser,
   userExistsByEmail,
 } from '../services/users.service'
 
@@ -115,6 +117,26 @@ usersRouter.post('/join', async (c) => {
     },
     201
   )
+})
+
+usersRouter.get('/', authMiddleware, requireOwner, async (c) => {
+  const team = await listTeam(c.get('tenantId'))
+  return c.json({ users: team })
+})
+
+usersRouter.delete('/:id', authMiddleware, requireOwner, async (c) => {
+  const targetId = c.req.param('id')
+  const currentUserId = c.get('userId') as string
+
+  if (targetId === currentUserId) {
+    return c.json({ error: 'Cannot remove yourself' }, 400)
+  }
+
+  const result = await removeUser(c.get('tenantId'), targetId)
+  if (result === 'not_found') return c.json({ error: 'User not found' }, 404)
+  if (result === 'has_orders') return c.json({ error: 'Cannot remove user with existing orders' }, 409)
+
+  return c.json({ message: 'User removed' })
 })
 
 export default usersRouter
