@@ -4,11 +4,15 @@ import { logger as honoLogger } from 'hono/logger'
 import { env } from './lib/env'
 import { logger } from './lib/logger'
 import auth from './routes/auth'
+import crews from './routes/crews'
+import orders from './routes/orders'
 import users from './routes/users'
 
 const app = new Hono()
 app.route('/auth', auth)
 app.route('/users', users)
+app.route('/orders', orders)
+app.route('/crews', crews)
 
 app.use(
   '*',
