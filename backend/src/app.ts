@@ -4,6 +4,7 @@ import { logger as honoLogger } from 'hono/logger'
 import { env } from './lib/env'
 import { logger } from './lib/logger'
 import auth from './routes/auth'
+import clients from './routes/clients'
 import crews from './routes/crews'
 import invoices from './routes/invoices'
 import orders from './routes/orders'
@@ -15,6 +16,7 @@ app.route('/users', users)
 app.route('/orders', orders)
 app.route('/crews', crews)
 app.route('/invoices', invoices)
+app.route('/clients', clients)
 
 app.use(
   '*',
