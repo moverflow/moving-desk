@@ -13,6 +13,11 @@ vi.mock('./lib/env', () => ({
     STRIPE_WEBHOOK_SECRET: 'whsec_placeholder',
     STRIPE_BASIC_PRICE_ID: 'price_basic',
     STRIPE_PRO_PRICE_ID: 'price_pro',
+    R2_ACCOUNT_ID: 'test-account',
+    R2_ACCESS_KEY_ID: 'test-key-id',
+    R2_SECRET_ACCESS_KEY: 'test-secret',
+    R2_BUCKET_NAME: 'test-bucket',
+    R2_PUBLIC_URL: 'https://pub.example.com',
   },
 }))
 

@@ -6,6 +6,7 @@ import { logger } from './lib/logger'
 import auth from './routes/auth'
 import billing from './routes/billing'
 import clients from './routes/clients'
+import settings from './routes/settings'
 import crews from './routes/crews'
 import invoices from './routes/invoices'
 import orders from './routes/orders'
@@ -19,6 +20,7 @@ app.route('/crews', crews)
 app.route('/invoices', invoices)
 app.route('/clients', clients)
 app.route('/billing', billing)
+app.route('/settings', settings)
 
 app.use(
   '*',
