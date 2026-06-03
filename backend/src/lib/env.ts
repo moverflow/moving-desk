@@ -13,6 +13,11 @@ const schema = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().default(''),
   STRIPE_BASIC_PRICE_ID: z.string().default(''),
   STRIPE_PRO_PRICE_ID: z.string().default(''),
+  R2_ACCOUNT_ID: z.string().default(''),
+  R2_ACCESS_KEY_ID: z.string().default(''),
+  R2_SECRET_ACCESS_KEY: z.string().default(''),
+  R2_BUCKET_NAME: z.string().default(''),
+  R2_PUBLIC_URL: z.string().default(''),
 })
 
 export const env = schema.parse(process.env)

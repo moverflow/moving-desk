@@ -81,3 +81,36 @@ export async function joinWithInvite(params: {
     return { user, jwt }
   })
 }
+
+export async function listTeam(tenantId: string) {
+  return db
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      role: users.role,
+      created_at: users.created_at,
+    })
+    .from(users)
+    .where(eq(users.tenant_id, tenantId))
+}
+
+export async function removeUser(
+  tenantId: string,
+  userId: string
+): Promise<'ok' | 'not_found' | 'has_orders'> {
+  const [user] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(and(eq(users.id, userId), eq(users.tenant_id, tenantId)))
+    .limit(1)
+
+  if (!user) return 'not_found'
+
+  try {
+    await db.delete(users).where(and(eq(users.id, userId), eq(users.tenant_id, tenantId)))
+    return 'ok'
+  } catch {
+    return 'has_orders'
+  }
+}
