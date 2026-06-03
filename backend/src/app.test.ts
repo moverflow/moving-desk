@@ -9,6 +9,10 @@ vi.mock('./lib/env', () => ({
     DATABASE_URL: 'postgresql://test',
     RESEND_API_KEY: 're_test_key',
     JWT_EXPIRES_IN: '7d',
+    STRIPE_SECRET_KEY: 'sk_test_placeholder',
+    STRIPE_WEBHOOK_SECRET: 'whsec_placeholder',
+    STRIPE_BASIC_PRICE_ID: 'price_basic',
+    STRIPE_PRO_PRICE_ID: 'price_pro',
   },
 }))
 

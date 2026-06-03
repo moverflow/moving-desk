@@ -2,6 +2,8 @@ import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { subscriptions, tenants, users } from '../db/schema'
 import { signToken } from '../lib/jwt'
+import { logger } from '../lib/logger'
+import { stripe } from '../lib/stripe'
 
 export async function loginUser(email: string) {
   const rows = await db
@@ -55,7 +57,7 @@ export async function registerTenantAndUser(params: {
   name: string
   slug: string
 }) {
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const trialEndsAt = new Date()
     trialEndsAt.setDate(trialEndsAt.getDate() + 14)
 
@@ -95,4 +97,20 @@ export async function registerTenantAndUser(params: {
 
     return { tenant, user, jwt }
   })
+
+  // Create Stripe customer after DB transaction — non-blocking, failure doesn't abort registration
+  try {
+    const customer = await stripe.customers.create({
+      email: params.email,
+      name: params.companyName,
+    })
+    await db
+      .update(subscriptions)
+      .set({ stripe_customer_id: customer.id })
+      .where(eq(subscriptions.tenant_id, result.tenant.id))
+  } catch (err) {
+    logger.error({ err }, 'Failed to create Stripe customer on register')
+  }
+
+  return result
 }
