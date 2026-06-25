@@ -1,8 +1,8 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { authMiddleware } from '../middleware/auth'
-import { getClientById, listClients, updateClient } from '../services/clients.service'
-import type { AppVariables } from '../types'
+import { authMiddleware } from '../middleware/auth.js'
+import { getClientById, listClients, updateClient } from '../services/clients.service.js'
+import type { AppVariables } from '../types/index.js'
 
 const patchClientSchema = z.object({
   name: z.string().min(2).optional(),

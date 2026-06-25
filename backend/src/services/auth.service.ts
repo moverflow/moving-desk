@@ -1,9 +1,9 @@
 import { eq } from 'drizzle-orm'
-import { db } from '../db'
-import { subscriptions, tenants, users } from '../db/schema'
-import { signToken } from '../lib/jwt'
-import { logger } from '../lib/logger'
-import { stripe } from '../lib/stripe'
+import { db } from '../db/index.js'
+import { subscriptions, tenants, users } from '../db/schema.js'
+import { signToken } from '../lib/jwt.js'
+import { logger } from '../lib/logger.js'
+import { stripe } from '../lib/stripe.js'
 
 export async function loginUser(email: string) {
   const rows = await db

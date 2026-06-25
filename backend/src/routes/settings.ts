@@ -1,9 +1,9 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { uploadLogo } from '../lib/r2'
-import { authMiddleware, requireOwner } from '../middleware/auth'
-import { getSettings, updateSettings } from '../services/settings.service'
-import type { AppVariables, TenantSettings } from '../types'
+import { uploadLogo } from '../lib/r2.js'
+import { authMiddleware, requireOwner } from '../middleware/auth.js'
+import { getSettings, updateSettings } from '../services/settings.service.js'
+import type { AppVariables, TenantSettings } from '../types/index.js'
 
 const patchSettingsSchema = z.object({
   companyName: z.string().min(2).max(255).optional(),

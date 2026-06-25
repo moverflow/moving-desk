@@ -1,6 +1,6 @@
 import { and, eq, ilike, or, sql } from 'drizzle-orm'
-import { db } from '../db'
-import { clients, orders } from '../db/schema'
+import { db } from '../db/index.js'
+import { clients, orders } from '../db/schema.js'
 
 export async function listClients(tenantId: string, search?: string) {
   return db

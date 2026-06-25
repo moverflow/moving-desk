@@ -10,7 +10,7 @@ export type SubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'cancelled
 
 export type HomeSize = 'studio' | '1br' | '2br' | '3br' | 'house'
 
-export type { TenantSettings } from '../db/schema'
+export type { TenantSettings } from '../db/schema.js'
 
 export type AppVariables = {
   userId: string

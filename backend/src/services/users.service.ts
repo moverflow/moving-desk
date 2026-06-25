@@ -1,8 +1,8 @@
 import { and, eq, gt, sql } from 'drizzle-orm'
-import { db } from '../db'
-import { invites, tenants, users } from '../db/schema'
-import { signToken } from '../lib/jwt'
-import type { Plan } from '../types'
+import { db } from '../db/index.js'
+import { invites, tenants, users } from '../db/schema.js'
+import { signToken } from '../lib/jwt.js'
+import type { Plan } from '../types/index.js'
 
 export async function countUsersInTenant(tenantId: string): Promise<number> {
   const result = await db

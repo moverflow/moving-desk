@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { sendInvoiceEmail } from '../lib/email'
-import { authMiddleware } from '../middleware/auth'
+import { sendInvoiceEmail } from '../lib/email.js'
+import { authMiddleware } from '../middleware/auth.js'
 import {
   generateInvoice,
   getInvoiceById,
@@ -10,8 +10,8 @@ import {
   listInvoices,
   markInvoiceSent,
   updateInvoiceStatus,
-} from '../services/invoices.service'
-import type { AppVariables } from '../types'
+} from '../services/invoices.service.js'
+import type { AppVariables } from '../types/index.js'
 
 const createInvoiceSchema = z.object({ orderId: z.string().uuid() })
 

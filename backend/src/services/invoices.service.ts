@@ -1,6 +1,6 @@
 import { and, eq, gt, sql } from 'drizzle-orm'
-import { db } from '../db'
-import { clients, invoices, orders, tenants } from '../db/schema'
+import { db } from '../db/index.js'
+import { clients, invoices, orders, tenants } from '../db/schema.js'
 
 export async function generateInvoice(tenantId: string, orderId: string) {
   const [order] = await db

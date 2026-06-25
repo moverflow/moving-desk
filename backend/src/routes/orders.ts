@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { authMiddleware } from '../middleware/auth'
+import { authMiddleware } from '../middleware/auth.js'
 import {
   createOrder,
   findOrCreateClient,
@@ -9,8 +9,8 @@ import {
   isValidTransition,
   listOrders,
   updateOrder,
-} from '../services/orders.service'
-import type { AppVariables } from '../types'
+} from '../services/orders.service.js'
+import type { AppVariables } from '../types/index.js'
 
 const PACKING_FEE = 12000 // $120 in cents
 

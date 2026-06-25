@@ -1,9 +1,9 @@
 import type { MiddlewareHandler } from 'hono'
 import { getCookie } from 'hono/cookie'
 import { eq } from 'drizzle-orm'
-import { db } from '../db'
-import { subscriptions } from '../db/schema'
-import { verifyToken } from '../lib/jwt'
+import { db } from '../db/index.js'
+import { subscriptions } from '../db/schema.js'
+import { verifyToken } from '../lib/jwt.js'
 
 export const authMiddleware: MiddlewareHandler = async (c, next) => {
   const token = getCookie(c, 'token')

@@ -1,7 +1,7 @@
 import { and, desc, eq } from 'drizzle-orm'
-import { db } from '../db'
-import { clients, orders, tenants } from '../db/schema'
-import type { HomeSize, OrderStatus, TenantSettings } from '../types'
+import { db } from '../db/index.js'
+import { clients, orders, tenants } from '../db/schema.js'
+import type { HomeSize, OrderStatus, TenantSettings } from '../types/index.js'
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   new: ['confirmed', 'cancelled'],

@@ -33,7 +33,7 @@ vi.mock('./db/index', () => ({
   },
 }))
 
-const { default: app } = await import('./app')
+const { default: app } = await import('./app.js')
 
 describe('GET /health', () => {
   it('returns 200 with status ok and ISO timestamp', async () => {

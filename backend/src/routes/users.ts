@@ -2,10 +2,10 @@ import bcrypt from 'bcryptjs'
 import { Hono } from 'hono'
 import { setCookie } from 'hono/cookie'
 import { z } from 'zod'
-import { sendInviteEmail } from '../lib/email'
-import { env } from '../lib/env'
-import { authMiddleware, requireOwner } from '../middleware/auth'
-import type { AppVariables } from '../types'
+import { sendInviteEmail } from '../lib/email.js'
+import { env } from '../lib/env.js'
+import { authMiddleware, requireOwner } from '../middleware/auth.js'
+import type { AppVariables } from '../types/index.js'
 import {
   countUsersInTenant,
   createInvite,
@@ -14,7 +14,7 @@ import {
   listTeam,
   removeUser,
   userExistsByEmail,
-} from '../services/users.service'
+} from '../services/users.service.js'
 
 const PLAN_USER_LIMITS: Record<string, number> = { trial: 1, basic: 3, pro: 10 }
 

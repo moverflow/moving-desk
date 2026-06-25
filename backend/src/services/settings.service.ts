@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
-import { db } from '../db'
-import { tenants } from '../db/schema'
-import type { TenantSettings } from '../types'
+import { db } from '../db/index.js'
+import { tenants } from '../db/schema.js'
+import type { TenantSettings } from '../types/index.js'
 
 const DEFAULT_SETTINGS: TenantSettings = {
   timezone: 'America/New_York',

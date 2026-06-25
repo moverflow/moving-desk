@@ -1,10 +1,10 @@
 import type Stripe from 'stripe'
 import { eq } from 'drizzle-orm'
-import { db } from '../db'
-import { subscriptions, tenants } from '../db/schema'
-import { env } from '../lib/env'
-import { stripe } from '../lib/stripe'
-import type { Plan, SubscriptionStatus } from '../types'
+import { db } from '../db/index.js'
+import { subscriptions, tenants } from '../db/schema.js'
+import { env } from '../lib/env.js'
+import { stripe } from '../lib/stripe.js'
+import type { Plan, SubscriptionStatus } from '../types/index.js'
 
 function getPlanFromPriceId(priceId: string): Plan {
   if (priceId === env.STRIPE_BASIC_PRICE_ID) return 'basic'

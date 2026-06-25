@@ -1,8 +1,8 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { authMiddleware } from '../middleware/auth'
-import { createCrew, deactivateCrew, listCrews, updateCrew } from '../services/crews.service'
-import type { AppVariables } from '../types'
+import { authMiddleware } from '../middleware/auth.js'
+import { createCrew, deactivateCrew, listCrews, updateCrew } from '../services/crews.service.js'
+import type { AppVariables } from '../types/index.js'
 
 const createCrewSchema = z.object({
   name: z.string().min(1),

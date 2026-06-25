@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm'
-import { db } from '../db'
-import { crews } from '../db/schema'
+import { db } from '../db/index.js'
+import { crews } from '../db/schema.js'
 
 export async function listCrews(tenantId: string) {
   return db

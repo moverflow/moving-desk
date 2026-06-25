@@ -2,17 +2,17 @@ import bcrypt from 'bcryptjs'
 import { Hono } from 'hono'
 import { setCookie } from 'hono/cookie'
 import { z } from 'zod'
-import { sendWelcomeEmail } from '../lib/email'
-import { env } from '../lib/env'
-import { signToken } from '../lib/jwt'
-import { authMiddleware } from '../middleware/auth'
+import { sendWelcomeEmail } from '../lib/email.js'
+import { env } from '../lib/env.js'
+import { signToken } from '../lib/jwt.js'
+import { authMiddleware } from '../middleware/auth.js'
 import {
   findUserByEmail,
   generateUniqueSlug,
   loginUser,
   registerTenantAndUser,
-} from '../services/auth.service'
-import type { Plan, UserRole } from '../types'
+} from '../services/auth.service.js'
+import type { Plan, UserRole } from '../types/index.js'
 
 const RATE_LIMIT_MAX = 5
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000

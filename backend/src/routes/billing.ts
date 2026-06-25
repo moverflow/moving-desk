@@ -1,15 +1,15 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { env } from '../lib/env'
-import { stripe } from '../lib/stripe'
-import { authMiddleware, requireOwner } from '../middleware/auth'
+import { env } from '../lib/env.js'
+import { stripe } from '../lib/stripe.js'
+import { authMiddleware, requireOwner } from '../middleware/auth.js'
 import {
   createCheckoutSession,
   createPortalSession,
   getStripeCustomerId,
   handleWebhookEvent,
-} from '../services/billing.service'
-import type { AppVariables } from '../types'
+} from '../services/billing.service.js'
+import type { AppVariables } from '../types/index.js'
 
 const checkoutSchema = z.object({ plan: z.enum(['basic', 'pro']) })
 
