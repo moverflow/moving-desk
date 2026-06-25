@@ -20,7 +20,7 @@ describe('useLogin mock logic', () => {
   })
 
   it('throws for any other email (AC3 — wrong credentials)', async () => {
-    const email = 'wrong@example.com'
+    const email: string = 'wrong@example.com'
     let message = ''
     try {
       if (email !== 'owner@bestmovers.com') throw new Error('Invalid email or password')
