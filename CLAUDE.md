@@ -229,6 +229,28 @@ ALWAYS before creating a branch:
 NEVER branch from another feature branch.
 NEVER merge PR into a feature branch — always into main.
 
+## ESM imports — critical rule
+
+This project uses Node.js ESM (NodeNext module resolution).
+ALL relative imports MUST end with .js, even though source files are .ts:
+
+✅ import { db } from '../db/index.js'
+✅ import type { User } from '../types/index.js'
+✅ const mod = await import('./app.js')
+
+❌ import { db } from '../db'
+❌ import type { User } from '../types'
+❌ const mod = await import('./app')
+
+This applies to every relative import without exception, including
+dynamic imports in test files. npm package imports and Node built-ins
+(e.g. 'hono', 'node:path') do NOT need .js.
+
+When importing from a directory (e.g. `src/types/`, `src/db/`), use the
+full path with index.js — never the bare directory name:
+✅ import { db } from '../db/index.js'
+❌ import { db } from '../db.js'    ← wrong if db/ is a directory, not a file
+
 ### Code style
 
 - No comments explaining what code does — code should be self-explanatory
