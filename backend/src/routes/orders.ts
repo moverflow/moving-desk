@@ -39,11 +39,19 @@ const patchOrderSchema = z.object({
   toAddress: z.string().min(1).optional(),
 })
 
+const listOrdersQuerySchema = z.object({
+  status: z.enum(['new', 'confirmed', 'in_progress', 'completed', 'closed', 'cancelled']).optional(),
+  date: z.string().optional(),
+  crew_id: z.string().uuid().optional(),
+})
+
 const ordersRouter = new Hono<{ Variables: AppVariables }>()
 
 ordersRouter.get('/', authMiddleware, async (c) => {
   const tenantId = c.get('tenantId')
-  const { status, date, crew_id } = c.req.query()
+  const parsed = listOrdersQuerySchema.safeParse(c.req.query())
+  if (!parsed.success) return c.json({ error: 'Validation failed' }, 400)
+  const { status, date, crew_id } = parsed.data
   const list = await listOrders(tenantId, { status, date, crewId: crew_id })
   return c.json({ orders: list, total: list.length })
 })

@@ -218,6 +218,17 @@ db.select().from(orders);
   `chore(deps): add drizzle-orm`
 - Never commit: .env files, node_modules, secrets
 
+## Git — critical rule
+
+ALWAYS before creating a branch:
+
+- git checkout main
+- git pull origin main
+- git checkout -b feat/sprint-N-feature-name
+
+NEVER branch from another feature branch.
+NEVER merge PR into a feature branch — always into main.
+
 ### Code style
 
 - No comments explaining what code does — code should be self-explanatory

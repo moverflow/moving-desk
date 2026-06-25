@@ -8,6 +8,13 @@
       "when": 1780514919485,
       "tag": "0000_tired_secret_warriors",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1781550896634,
+      "tag": "0001_legal_lionheart",
+      "breakpoints": true
     }
   ]
 }

@@ -4,15 +4,16 @@ import { db } from '../db'
 import { subscriptions, tenants } from '../db/schema'
 import { env } from '../lib/env'
 import { stripe } from '../lib/stripe'
+import type { Plan, SubscriptionStatus } from '../types'
 
-function getPlanFromPriceId(priceId: string): string {
+function getPlanFromPriceId(priceId: string): Plan {
   if (priceId === env.STRIPE_BASIC_PRICE_ID) return 'basic'
   if (priceId === env.STRIPE_PRO_PRICE_ID) return 'pro'
   return 'basic'
 }
 
-function mapStripeStatus(status: Stripe.Subscription.Status): string {
-  const map: Partial<Record<Stripe.Subscription.Status, string>> = {
+function mapStripeStatus(status: Stripe.Subscription.Status): SubscriptionStatus {
+  const map: Partial<Record<Stripe.Subscription.Status, SubscriptionStatus>> = {
     active: 'active',
     trialing: 'trialing',
     past_due: 'past_due',

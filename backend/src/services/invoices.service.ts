@@ -51,7 +51,7 @@ export async function updateInvoiceStatus(
   invoiceId: string,
   status: 'sent' | 'paid'
 ) {
-  const set: { status: string; sent_at?: Date; paid_at?: Date } = { status }
+  const set: { status: 'sent' | 'paid'; sent_at?: Date; paid_at?: Date } = { status }
   if (status === 'sent') set.sent_at = new Date()
   if (status === 'paid') set.paid_at = new Date()
 

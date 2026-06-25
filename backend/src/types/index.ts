@@ -10,10 +10,7 @@ export type SubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'cancelled
 
 export type HomeSize = 'studio' | '1br' | '2br' | '3br' | 'house'
 
-export interface TenantSettings {
-  timezone: string
-  baseRates: Record<string, number>
-}
+export type { TenantSettings } from '../db/schema'
 
 export type AppVariables = {
   userId: string

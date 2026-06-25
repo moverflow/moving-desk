@@ -1,7 +1,7 @@
 import { and, desc, eq } from 'drizzle-orm'
 import { db } from '../db'
 import { clients, orders, tenants } from '../db/schema'
-import type { TenantSettings } from '../types'
+import type { HomeSize, OrderStatus, TenantSettings } from '../types'
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   new: ['confirmed', 'cancelled'],
@@ -17,7 +17,7 @@ export function isValidTransition(from: string, to: string): boolean {
 
 export async function listOrders(
   tenantId: string,
-  filters: { status?: string; date?: string; crewId?: string }
+  filters: { status?: OrderStatus; date?: string; crewId?: string }
 ) {
   return db
     .select()
@@ -84,7 +84,7 @@ export async function createOrder(params: {
   toFloor: number
   fromElevator: boolean
   toElevator: boolean
-  homeSize: string
+  homeSize: HomeSize
   packing: boolean
   notes?: string
   basePrice: number
@@ -119,7 +119,7 @@ export async function updateOrder(
   tenantId: string,
   orderId: string,
   updates: {
-    status?: string
+    status?: OrderStatus
     crewId?: string | null
     notes?: string | null
     moveDate?: string
@@ -128,7 +128,7 @@ export async function updateOrder(
   }
 ) {
   const set: {
-    status?: string
+    status?: OrderStatus
     crew_id?: string | null
     notes?: string | null
     move_date?: string
