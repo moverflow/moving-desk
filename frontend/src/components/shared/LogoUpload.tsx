@@ -4,19 +4,26 @@ import { Label } from '@/components/ui/label'
 
 interface LogoUploadProps {
   onSkip: () => void
+  onFileSelect?: (file: File | null) => void
 }
 
-export default function LogoUpload({ onSkip }: LogoUploadProps): JSX.Element {
+export default function LogoUpload({ onSkip, onFileSelect }: LogoUploadProps): JSX.Element {
   const [preview, setPreview] = useState<string | null>(null)
 
   function handleChange(e: ChangeEvent<HTMLInputElement>): void {
     const file = e.target.files?.[0]
     if (!file) return
+    onFileSelect?.(file)
     const reader = new FileReader()
     reader.onloadend = () => {
       if (typeof reader.result === 'string') setPreview(reader.result)
     }
     reader.readAsDataURL(file)
+  }
+
+  function handleRemove(): void {
+    setPreview(null)
+    onFileSelect?.(null)
   }
 
   return (
@@ -31,7 +38,7 @@ export default function LogoUpload({ onSkip }: LogoUploadProps): JSX.Element {
           />
           <button
             type="button"
-            onClick={() => setPreview(null)}
+            onClick={handleRemove}
             className="text-sm text-muted-foreground hover:text-foreground"
           >
             Remove

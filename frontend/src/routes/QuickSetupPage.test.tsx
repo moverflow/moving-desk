@@ -1,10 +1,26 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import QuickSetupPage from './QuickSetupPage'
 
+vi.mock('@/hooks/useSettings', () => ({
+  useUpdateSettings: vi.fn(),
+  useUploadLogo: vi.fn(),
+}))
+
+import { useUpdateSettings, useUploadLogo } from '@/hooks/useSettings'
+
 function renderSetup() {
+  vi.mocked(useUpdateSettings).mockReturnValue({
+    mutateAsync: vi.fn().mockResolvedValue({}),
+    isPending: false,
+  } as unknown as ReturnType<typeof useUpdateSettings>)
+  vi.mocked(useUploadLogo).mockReturnValue({
+    mutateAsync: vi.fn().mockResolvedValue({ url: 'https://example.com/logo.png' }),
+    isPending: false,
+  } as unknown as ReturnType<typeof useUploadLogo>)
+
   const qc = new QueryClient()
   return render(
     <QueryClientProvider client={qc}>
@@ -27,7 +43,6 @@ describe('QuickSetupPage', () => {
 
   it('renders timezone select with default America/New_York', () => {
     renderSetup()
-    // Radix Select renders value in both trigger button and hidden <select>
     const matches = screen.getAllByText('America/New_York (ET)')
     expect(matches.length).toBeGreaterThan(0)
   })

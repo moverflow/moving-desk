@@ -32,8 +32,31 @@ export async function generateInvoice(tenantId: string, orderId: string) {
 
 export async function listInvoices(tenantId: string) {
   return db
-    .select()
+    .select({
+      id: invoices.id,
+      tenant_id: invoices.tenant_id,
+      order_id: invoices.order_id,
+      number: invoices.number,
+      status: invoices.status,
+      share_token: invoices.share_token,
+      sent_at: invoices.sent_at,
+      paid_at: invoices.paid_at,
+      expires_at: invoices.expires_at,
+      created_at: invoices.created_at,
+      clientName: clients.name,
+      clientPhone: clients.phone,
+      clientEmail: clients.email,
+      fromAddress: orders.from_address,
+      toAddress: orders.to_address,
+      moveDate: orders.move_date,
+      homeSize: orders.home_size,
+      packing: orders.packing,
+      basePrice: orders.base_price,
+      totalPrice: orders.total_price,
+    })
     .from(invoices)
+    .innerJoin(orders, eq(orders.id, invoices.order_id))
+    .leftJoin(clients, eq(clients.id, orders.client_id))
     .where(eq(invoices.tenant_id, tenantId))
 }
 
@@ -70,6 +93,7 @@ export async function getInvoiceSendData(tenantId: string, invoiceId: string) {
       number: invoices.number,
       status: invoices.status,
       share_token: invoices.share_token,
+      clientId: clients.id,
       clientEmail: clients.email,
       clientName: clients.name,
       companyName: tenants.name,

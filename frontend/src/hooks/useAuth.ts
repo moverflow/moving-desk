@@ -1,6 +1,7 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
-import type { User } from '@/types'
-import { MOCK_USER, MOCK_TENANT, useAuthStore } from '@/store/auth.store'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { User, Tenant } from '@/types'
+import { apiFetch } from '@/lib/api'
+import { useAuthStore } from '@/store/auth.store'
 
 interface RegisterData {
   companyName: string
@@ -20,12 +21,18 @@ interface JoinData {
   token: string
 }
 
+interface AuthResponse {
+  user: User
+  tenant: Tenant
+}
+
 export function useRegister() {
   return useMutation({
-    mutationFn: async (_data: RegisterData) => {
-      await new Promise<void>((r) => setTimeout(r, 800))
-      return { user: MOCK_USER, tenant: MOCK_TENANT }
-    },
+    mutationFn: (data: RegisterData) =>
+      apiFetch<AuthResponse>('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
     onSuccess: ({ user, tenant }) => {
       useAuthStore.getState().setAuth(user, tenant)
     },
@@ -34,13 +41,11 @@ export function useRegister() {
 
 export function useLogin() {
   return useMutation({
-    mutationFn: async (data: LoginData) => {
-      await new Promise<void>((r) => setTimeout(r, 600))
-      if (data.email !== 'owner@bestmovers.com') {
-        throw new Error('Invalid email or password')
-      }
-      return { user: MOCK_USER, tenant: MOCK_TENANT }
-    },
+    mutationFn: (data: LoginData) =>
+      apiFetch<AuthResponse>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
     onSuccess: ({ user, tenant }) => {
       useAuthStore.getState().setAuth(user, tenant)
     },
@@ -48,30 +53,31 @@ export function useLogin() {
 }
 
 export function useLogout() {
+  const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async () => {
-      await new Promise<void>((r) => setTimeout(r, 200))
-    },
+    mutationFn: () => apiFetch<{ message: string }>('/auth/logout', { method: 'POST' }),
     onSuccess: () => {
       useAuthStore.getState().clearAuth()
+      queryClient.removeQueries()
     },
   })
 }
 
 export function useMe() {
-  return useQuery<User>({
+  return useQuery<AuthResponse>({
     queryKey: ['me'],
-    queryFn: async () => MOCK_USER,
+    queryFn: () => apiFetch<AuthResponse>('/auth/me'),
     retry: false,
   })
 }
 
 export function useJoin() {
   return useMutation({
-    mutationFn: async (_data: JoinData) => {
-      await new Promise<void>((r) => setTimeout(r, 800))
-      return { user: MOCK_USER, tenant: MOCK_TENANT }
-    },
+    mutationFn: (data: JoinData) =>
+      apiFetch<AuthResponse>('/users/join', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
     onSuccess: ({ user, tenant }) => {
       useAuthStore.getState().setAuth(user, tenant)
     },

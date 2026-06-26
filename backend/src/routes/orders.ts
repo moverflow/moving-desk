@@ -17,6 +17,7 @@ const PACKING_FEE = 12000 // $120 in cents
 const createOrderSchema = z.object({
   clientPhone: z.string().min(1),
   clientName: z.string().min(2),
+  clientEmail: z.string().email().optional(),
   fromAddress: z.string().min(1),
   toAddress: z.string().min(1),
   moveDate: z.string().min(1),
@@ -70,7 +71,7 @@ ordersRouter.post('/', authMiddleware, async (c) => {
   const tenantId = c.get('tenantId')
   const userId = c.get('userId')
 
-  const clientId = await findOrCreateClient(tenantId, d.clientPhone, d.clientName)
+  const clientId = await findOrCreateClient(tenantId, d.clientPhone, d.clientName, d.clientEmail)
   const baseRates = await getTenantBaseRates(tenantId)
   const basePrice = baseRates[d.homeSize] ?? 0
   const totalPrice = basePrice + (d.packing ? PACKING_FEE : 0)

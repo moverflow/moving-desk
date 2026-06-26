@@ -30,6 +30,20 @@ function toCustomerId(customer: string | Stripe.Customer | Stripe.DeletedCustome
   return typeof customer === 'string' ? customer : customer.id
 }
 
+export async function getSubscription(tenantId: string) {
+  const rows = await db
+    .select({
+      plan: subscriptions.plan,
+      status: subscriptions.status,
+      trialEndsAt: tenants.trial_ends_at,
+    })
+    .from(subscriptions)
+    .innerJoin(tenants, eq(tenants.id, subscriptions.tenant_id))
+    .where(eq(subscriptions.tenant_id, tenantId))
+    .limit(1)
+  return rows[0] ?? null
+}
+
 export async function getStripeCustomerId(tenantId: string): Promise<string | null> {
   const [sub] = await db
     .select({ stripe_customer_id: subscriptions.stripe_customer_id })

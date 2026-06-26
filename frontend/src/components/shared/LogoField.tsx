@@ -5,15 +5,17 @@ import { Label } from '@/components/ui/label'
 interface LogoFieldProps {
   initialPreview: string | null
   onPreviewChange: (url: string | null) => void
+  onFileSelect?: (file: File | null) => void
   disabled: boolean
 }
 
-export default function LogoField({ initialPreview, onPreviewChange, disabled }: LogoFieldProps): JSX.Element {
+export default function LogoField({ initialPreview, onPreviewChange, onFileSelect, disabled }: LogoFieldProps): JSX.Element {
   const [preview, setPreview] = useState<string | null>(initialPreview)
 
   function handleChange(e: ChangeEvent<HTMLInputElement>): void {
     const file = e.target.files?.[0]
     if (!file) return
+    onFileSelect?.(file)
     const reader = new FileReader()
     reader.onloadend = () => {
       if (typeof reader.result === 'string') {
@@ -27,6 +29,7 @@ export default function LogoField({ initialPreview, onPreviewChange, disabled }:
   function handleRemove(): void {
     setPreview(null)
     onPreviewChange(null)
+    onFileSelect?.(null)
   }
 
   return (

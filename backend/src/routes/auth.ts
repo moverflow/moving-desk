@@ -9,10 +9,11 @@ import { authMiddleware } from '../middleware/auth.js'
 import {
   findUserByEmail,
   generateUniqueSlug,
+  getMeData,
   loginUser,
   registerTenantAndUser,
 } from '../services/auth.service.js'
-import type { Plan, UserRole } from '../types/index.js'
+import type { AppVariables, Plan, UserRole } from '../types/index.js'
 
 const RATE_LIMIT_MAX = 5
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000
@@ -42,7 +43,7 @@ const loginSchema = z.object({
   password: z.string().min(1),
 })
 
-const auth = new Hono()
+const auth = new Hono<{ Variables: AppVariables }>()
 
 auth.post('/register', async (c) => {
   let body: unknown
@@ -171,6 +172,15 @@ auth.post('/login', async (c) => {
       name: row.tenantName,
       plan: row.plan ?? 'trial',
     },
+  })
+})
+
+auth.get('/me', authMiddleware, async (c) => {
+  const data = await getMeData(c.get('userId'), c.get('tenantId'))
+  if (!data) return c.json({ error: 'Not found' }, 404)
+  return c.json({
+    user: { id: data.userId, email: data.userEmail, name: data.userName, role: data.userRole },
+    tenant: { id: data.tenantId, name: data.tenantName, plan: data.tenantPlan ?? 'trial' },
   })
 })
 

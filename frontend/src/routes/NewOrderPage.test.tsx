@@ -1,8 +1,37 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import NewOrderPage from './NewOrderPage'
+import type { Client } from '@/types'
+
+vi.mock('@/hooks/useOrders', () => ({
+  useCrews: vi.fn(),
+  useCreateOrder: vi.fn(),
+}))
+
+vi.mock('@/hooks/useClients', () => ({
+  useClientByPhone: vi.fn(),
+}))
+
+import { useCrews, useCreateOrder } from '@/hooks/useOrders'
+import { useClientByPhone } from '@/hooks/useClients'
+
+const MOCK_CLIENT: Client = {
+  id: 'client-1', tenantId: 'mock-tenant-1',
+  name: 'Rick Adams', phone: '(949) 632-9557',
+  email: 'radams@example.com', notes: '',
+  orderCount: 1, createdAt: '2026-06-01T10:00:00Z',
+}
+
+beforeEach(() => {
+  vi.mocked(useClientByPhone).mockReturnValue({ data: null } as ReturnType<typeof useClientByPhone>)
+  vi.mocked(useCrews).mockReturnValue({ data: [] } as unknown as ReturnType<typeof useCrews>)
+  vi.mocked(useCreateOrder).mockReturnValue({
+    mutate: vi.fn((_data, opts) => opts?.onSuccess?.({})),
+    isPending: false,
+  } as unknown as ReturnType<typeof useCreateOrder>)
+})
 
 function renderNewOrder() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -41,7 +70,8 @@ describe('NewOrderPage', () => {
     expect(screen.getByText('$480')).toBeInTheDocument()
   })
 
-  it('AC2 — phone blur auto-fills client name', async () => {
+  it('AC2 — phone blur auto-fills client name when client found', async () => {
+    vi.mocked(useClientByPhone).mockReturnValue({ data: MOCK_CLIENT } as ReturnType<typeof useClientByPhone>)
     renderNewOrder()
     const phoneInput = screen.getByLabelText(/phone/i)
     fireEvent.change(phoneInput, { target: { value: '(949) 632-9557' } })
@@ -61,6 +91,6 @@ describe('NewOrderPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /save order/i }))
     await waitFor(() => {
       expect(screen.getByText('orders board')).toBeInTheDocument()
-    }, { timeout: 2000 })
+    })
   })
 })

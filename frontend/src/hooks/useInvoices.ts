@@ -1,50 +1,60 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Invoice, InvoiceStatus, Company } from '@/types'
+import { apiFetch } from '@/lib/api'
 
-const MOCK_INVOICES: Invoice[] = [
-  {
-    id: 'inv-1', tenantId: 'mock-tenant-1', orderId: 'order-1',
-    number: 'INV-1089', status: 'draft',
-    clientName: 'Rick Adams', clientPhone: '(949) 632-9557',
-    fromAddress: 'Lake Forest, CA', toAddress: 'Anaheim, CA',
-    moveDate: '2026-06-15', homeSize: '2 BR', packing: false,
-    basePrice: 480, totalPrice: 480, shareToken: 'mock-token-1',
-    createdAt: '2026-06-01T10:00:00Z',
-  },
-  {
-    id: 'inv-2', tenantId: 'mock-tenant-1', orderId: 'order-2',
-    number: 'INV-1088', status: 'sent',
-    clientName: 'Tom Wilson', clientPhone: '(310) 555-0177',
-    fromAddress: 'Newport Beach, CA', toAddress: 'Los Angeles, CA',
-    moveDate: '2026-06-20', homeSize: 'House', packing: true,
-    basePrice: 850, totalPrice: 1100, shareToken: 'mock-token-2',
-    sentAt: '2026-06-02T11:00:00Z', createdAt: '2026-06-02T10:00:00Z',
-  },
-  {
-    id: 'inv-3', tenantId: 'mock-tenant-1', orderId: 'order-4',
-    number: 'INV-1087', status: 'paid',
-    clientName: 'James Lee', clientPhone: '(714) 555-0142',
-    fromAddress: 'Tustin, CA', toAddress: 'Yorba Linda, CA',
-    moveDate: '2026-06-10', homeSize: '2 BR', packing: false,
-    basePrice: 480, totalPrice: 480, shareToken: 'mock-token-3',
-    sentAt: '2026-06-10T15:00:00Z', paidAt: '2026-06-11T09:00:00Z',
-    createdAt: '2026-06-10T14:00:00Z',
-  },
-]
+interface RawInvoice {
+  id: string
+  tenant_id: string
+  order_id: string
+  number: string
+  status: string
+  share_token: string | null
+  sent_at: string | null
+  paid_at: string | null
+  expires_at: string | null
+  created_at: string | null
+  clientName: string | null
+  clientPhone: string | null
+  clientEmail: string | null
+  fromAddress: string | null
+  toAddress: string | null
+  moveDate: string | null
+  homeSize: string | null
+  packing: boolean | null
+  basePrice: number | null
+  totalPrice: number | null
+}
 
-export const MOCK_COMPANY: Company = {
-  name: 'Best & Pro Moving Service',
-  phone: '(714) 555-0199',
-  website: 'bestpro-moving.com',
-  logoUrl: null,
+function mapInvoice(raw: RawInvoice): Invoice {
+  return {
+    id: raw.id,
+    tenantId: raw.tenant_id,
+    orderId: raw.order_id,
+    number: raw.number,
+    status: raw.status as InvoiceStatus,
+    clientName: raw.clientName ?? '',
+    clientPhone: raw.clientPhone ?? '',
+    clientEmail: raw.clientEmail ?? '',
+    fromAddress: raw.fromAddress ?? '',
+    toAddress: raw.toAddress ?? '',
+    moveDate: raw.moveDate ?? '',
+    homeSize: raw.homeSize ?? '',
+    packing: raw.packing ?? false,
+    basePrice: raw.basePrice ?? 0,
+    totalPrice: raw.totalPrice ?? 0,
+    shareToken: raw.share_token ?? '',
+    sentAt: raw.sent_at ?? undefined,
+    paidAt: raw.paid_at ?? undefined,
+    createdAt: raw.created_at ?? '',
+  }
 }
 
 export function useInvoices() {
   return useQuery<Invoice[]>({
     queryKey: ['invoices'],
     queryFn: async () => {
-      await new Promise<void>((r) => setTimeout(r, 300))
-      return [...MOCK_INVOICES]
+      const data = await apiFetch<{ invoices: RawInvoice[] }>('/invoices')
+      return data.invoices.map(mapInvoice)
     },
   })
 }
@@ -52,20 +62,11 @@ export function useInvoices() {
 export function useGenerateInvoice() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (orderId: string) => {
-      await new Promise<void>((r) => setTimeout(r, 800))
-      const newInvoice: Invoice = {
-        id: `inv-${Date.now()}`, tenantId: 'mock-tenant-1', orderId,
-        number: `INV-${1090 + MOCK_INVOICES.length}`, status: 'draft',
-        clientName: 'New Client', clientPhone: '(555) 000-0001',
-        fromAddress: 'Origin, CA', toAddress: 'Destination, CA',
-        moveDate: new Date().toISOString().slice(0, 10),
-        homeSize: '2 BR', packing: false, basePrice: 480, totalPrice: 480,
-        shareToken: `token-${Date.now()}`, createdAt: new Date().toISOString(),
-      }
-      MOCK_INVOICES.push(newInvoice)
-      return newInvoice
-    },
+    mutationFn: (orderId: string) =>
+      apiFetch<{ invoice: RawInvoice }>('/invoices', {
+        method: 'POST',
+        body: JSON.stringify({ orderId }),
+      }).then((res) => mapInvoice(res.invoice)),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['invoices'] }),
   })
 }
@@ -73,12 +74,11 @@ export function useGenerateInvoice() {
 export function useUpdateInvoiceStatus() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: InvoiceStatus }) => {
-      await new Promise<void>((r) => setTimeout(r, 300))
-      const inv = MOCK_INVOICES.find((i) => i.id === id)
-      if (inv) inv.status = status
-      return inv
-    },
+    mutationFn: ({ id, status }: { id: string; status: InvoiceStatus }) =>
+      apiFetch<{ invoice: RawInvoice }>(`/invoices/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      }).then((res) => mapInvoice(res.invoice)),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['invoices'] }),
   })
 }
@@ -86,23 +86,67 @@ export function useUpdateInvoiceStatus() {
 export function useSendInvoice() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (id: string) => {
-      await new Promise<void>((r) => setTimeout(r, 600))
-      const inv = MOCK_INVOICES.find((i) => i.id === id)
-      if (inv) { inv.status = 'sent'; inv.sentAt = new Date().toISOString() }
-      return inv
-    },
+    mutationFn: ({ id, email }: { id: string; email?: string }) =>
+      apiFetch<{ message: string }>(`/invoices/${id}/send`, {
+        method: 'POST',
+        ...(email ? { body: JSON.stringify({ email }) } : {}),
+      }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['invoices'] }),
   })
 }
 
+interface PublicInvoiceRow {
+  invoiceId: string
+  number: string
+  status: string
+  createdAt: string | null
+  fromAddress: string
+  toAddress: string
+  moveDate: string
+  homeSize: string
+  packing: boolean | null
+  basePrice: number
+  totalPrice: number
+  clientName: string | null
+  clientPhone: string | null
+  companyName: string
+  companyLogoUrl: string | null
+  companySettings: unknown
+}
+
 export function usePublicInvoice(token: string) {
-  return useQuery({
+  return useQuery<{ invoice: Invoice; company: Company }>({
     queryKey: ['invoice-public', token],
     queryFn: async () => {
-      await new Promise<void>((r) => setTimeout(r, 400))
-      const invoice = MOCK_INVOICES.find((i) => i.shareToken === token) ?? MOCK_INVOICES[0]
-      return { invoice, company: MOCK_COMPANY }
+      const data = await apiFetch<{ invoice: PublicInvoiceRow }>(`/invoices/share/${token}`)
+      const row = data.invoice
+      const invoice: Invoice = {
+        id: row.invoiceId,
+        tenantId: '',
+        orderId: '',
+        number: row.number,
+        status: row.status as InvoiceStatus,
+        clientName: row.clientName ?? '',
+        clientPhone: row.clientPhone ?? '',
+        clientEmail: '',
+        fromAddress: row.fromAddress,
+        toAddress: row.toAddress,
+        moveDate: row.moveDate,
+        homeSize: row.homeSize,
+        packing: row.packing ?? false,
+        basePrice: row.basePrice,
+        totalPrice: row.totalPrice,
+        shareToken: token,
+        createdAt: row.createdAt ?? '',
+      }
+      const company: Company = {
+        name: row.companyName,
+        phone: '',
+        website: '',
+        logoUrl: row.companyLogoUrl,
+      }
+      return { invoice, company }
     },
+    enabled: token.length > 0,
   })
 }

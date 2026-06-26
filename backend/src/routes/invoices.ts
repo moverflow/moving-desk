@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { sendInvoiceEmail } from '../lib/email.js'
 import { authMiddleware } from '../middleware/auth.js'
+import { updateClient } from '../services/clients.service.js'
 import {
   generateInvoice,
   getInvoiceById,
@@ -16,6 +17,10 @@ import type { AppVariables } from '../types/index.js'
 const createInvoiceSchema = z.object({ orderId: z.string().uuid() })
 
 const statusSchema = z.object({ status: z.enum(['sent', 'paid']) })
+
+const sendInvoiceSchema = z.object({
+  email: z.string().email().optional(),
+})
 
 const invoicesRouter = new Hono<{ Variables: AppVariables }>()
 
@@ -39,7 +44,9 @@ invoicesRouter.post('/', authMiddleware, async (c) => {
     return c.json({ error: 'Validation failed' }, 400)
   }
   const result = createInvoiceSchema.safeParse(body)
-  if (!result.success) return c.json({ error: 'Validation failed' }, 400)
+  if (!result.success) {
+    return c.json({ error: 'Validation failed', details: result.error.issues }, 400)
+  }
 
   const invoice = await generateInvoice(c.get('tenantId'), result.data.orderId)
   if (!invoice) return c.json({ error: 'Order not found' }, 404)
@@ -75,12 +82,31 @@ invoicesRouter.post('/:id/send', authMiddleware, async (c) => {
   const tenantId = c.get('tenantId')
   const invoiceId = c.req.param('id')
 
+  let body: unknown = {}
+  try {
+    body = await c.req.json()
+  } catch {
+    body = {}
+  }
+  const parsed = sendInvoiceSchema.safeParse(body)
+  if (!parsed.success) {
+    return c.json({ error: 'Validation failed', details: parsed.error.issues }, 400)
+  }
+
   const data = await getInvoiceSendData(tenantId, invoiceId)
   if (!data) return c.json({ error: 'Invoice not found' }, 404)
-  if (!data.clientEmail) return c.json({ error: 'Client has no email address' }, 422)
+
+  const email = parsed.data.email ?? data.clientEmail ?? null
+  if (!email) {
+    return c.json({ error: 'Client has no email address. Add an email to send the invoice.' }, 422)
+  }
+
+  if (parsed.data.email && data.clientId && !data.clientEmail) {
+    await updateClient(tenantId, data.clientId, { email: parsed.data.email })
+  }
 
   sendInvoiceEmail({
-    to: data.clientEmail,
+    to: email,
     clientName: data.clientName ?? 'Client',
     companyName: data.companyName,
     invoiceNumber: data.number,

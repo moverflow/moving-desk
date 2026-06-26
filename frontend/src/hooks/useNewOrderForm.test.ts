@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 // AC2 — pre-fill logic: verify the initializer merges location.state correctly
 describe('useNewOrderForm pre-fill logic (AC2)', () => {
   const BLANK = {
-    phone: '', clientName: '', fromAddress: '', toAddress: '',
+    phone: '', clientName: '', clientEmail: '', fromAddress: '', toAddress: '',
     moveDate: '', homeSize: '2br', fromFloor: 1, toFloor: 1,
     fromElevator: false, toElevator: false, packing: false,
     crewId: '', notes: '',

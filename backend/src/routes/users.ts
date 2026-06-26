@@ -48,7 +48,11 @@ usersRouter.post('/invite', authMiddleware, requireOwner, async (c) => {
   const limit = PLAN_USER_LIMITS[plan] ?? 1
   const currentCount = await countUsersInTenant(tenantId)
   if (currentCount >= limit) {
-    return c.json({ error: 'User limit reached' }, 422)
+    const hint =
+      plan === 'trial'
+        ? 'Trial includes 1 user (owner). Upgrade to Basic to invite dispatchers.'
+        : `Your ${plan} plan allows up to ${limit} users.`
+    return c.json({ error: 'User limit reached', message: hint }, 422)
   }
 
   const exists = await userExistsByEmail(email)

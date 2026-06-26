@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useAuthStore } from '@/store/auth.store'
 import { useTeam, useInviteMember, useRemoveMember } from '@/hooks/useSettings'
+import { ApiError } from '@/lib/api'
 
 const ROLE_STYLES: Record<string, string> = {
   owner: 'bg-blue-100 text-blue-700',
@@ -17,11 +18,22 @@ export default function TeamTab(): JSX.Element {
   const { mutate: remove } = useRemoveMember()
   const [inviteEmail, setInviteEmail] = useState('')
   const [sent, setSent] = useState(false)
+  const [inviteError, setInviteError] = useState<string | null>(null)
 
   function handleInvite(e: FormEvent<HTMLFormElement>): void {
     e.preventDefault()
     if (!inviteEmail.trim()) return
-    invite(inviteEmail, { onSuccess: () => { setInviteEmail(''); setSent(true); setTimeout(() => setSent(false), 3000) } })
+    setInviteError(null)
+    invite(inviteEmail, {
+      onSuccess: () => {
+        setInviteEmail('')
+        setSent(true)
+        setTimeout(() => setSent(false), 3000)
+      },
+      onError: (err) => {
+        setInviteError(err instanceof ApiError ? err.message : 'Failed to send invite')
+      },
+    })
   }
 
   return (
@@ -47,6 +59,7 @@ export default function TeamTab(): JSX.Element {
         <Button type="submit" disabled={isInviting}>{isInviting ? 'Sending...' : 'Invite'}</Button>
       </form>
       {sent && <p className="text-sm text-green-600">Invite sent!</p>}
+      {inviteError !== null && <p className="text-sm text-destructive">{inviteError}</p>}
     </div>
   )
 }

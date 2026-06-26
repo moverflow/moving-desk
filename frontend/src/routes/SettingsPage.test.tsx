@@ -1,14 +1,60 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import SettingsPage from './SettingsPage'
 import { useAuthStore } from '@/store/auth.store'
-import { MOCK_USER, MOCK_TENANT } from '@/store/auth.store'
+import type { TeamMember } from '@/types'
+
+vi.mock('@/hooks/useSettings', () => ({
+  useSettings: vi.fn(),
+  useUpdateSettings: vi.fn(),
+  useUploadLogo: vi.fn(),
+  useTeam: vi.fn(),
+  useInviteMember: vi.fn(),
+  useRemoveMember: vi.fn(),
+  useSubscription: vi.fn(),
+}))
+
+import {
+  useSettings, useUpdateSettings, useUploadLogo,
+  useTeam, useInviteMember, useRemoveMember, useSubscription,
+} from '@/hooks/useSettings'
+
+const MOCK_USER = { id: 'user-1', email: 'owner@example.com', name: 'John Smith', role: 'owner' }
+const MOCK_TENANT = { id: 'tenant-1', name: 'Best Movers', plan: 'trial' }
+
+const MOCK_SETTINGS = {
+  companyName: 'Best & Pro Moving Service',
+  logoUrl: null,
+  timezone: 'America/Los_Angeles',
+  baseRates: { studio: 280, '1br': 380, '2br': 480, '3br': 620, house: 850 },
+}
+
+const MOCK_TEAM: TeamMember[] = [
+  { id: 'user-1', name: 'John Smith', email: 'john@bestmovers.com', role: 'owner' },
+  { id: 'user-2', name: 'Maria Garcia', email: 'maria@bestmovers.com', role: 'dispatcher' },
+]
+
+const MOCK_SUB = { plan: 'trial' as const, status: 'trialing' as const, trialEndsAt: new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString() }
+
+function setupMocks() {
+  vi.mocked(useSettings).mockReturnValue({ data: MOCK_SETTINGS } as ReturnType<typeof useSettings>)
+  vi.mocked(useUpdateSettings).mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue(MOCK_SETTINGS), isPending: false } as unknown as ReturnType<typeof useUpdateSettings>)
+  vi.mocked(useUploadLogo).mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue({ url: '' }), isPending: false } as unknown as ReturnType<typeof useUploadLogo>)
+  vi.mocked(useTeam).mockReturnValue({ data: MOCK_TEAM } as ReturnType<typeof useTeam>)
+  vi.mocked(useInviteMember).mockReturnValue({
+    mutate: vi.fn((_email, opts) => opts?.onSuccess?.({ message: 'Invite sent', email: _email })),
+    isPending: false,
+  } as unknown as ReturnType<typeof useInviteMember>)
+  vi.mocked(useRemoveMember).mockReturnValue({ mutate: vi.fn(), isPending: false } as unknown as ReturnType<typeof useRemoveMember>)
+  vi.mocked(useSubscription).mockReturnValue({ data: MOCK_SUB } as ReturnType<typeof useSubscription>)
+}
 
 function renderSettings() {
   useAuthStore.getState().setAuth(MOCK_USER, MOCK_TENANT)
+  setupMocks()
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return {
     user: userEvent.setup(),
@@ -21,6 +67,10 @@ function renderSettings() {
     ),
   }
 }
+
+beforeEach(() => {
+  useAuthStore.getState().clearAuth()
+})
 
 describe('SettingsPage', () => {
   it('renders three tab triggers', () => {
@@ -51,7 +101,7 @@ describe('SettingsPage', () => {
     await waitFor(() => {
       expect(screen.getByText('John Smith')).toBeInTheDocument()
       expect(screen.getByText('Maria Garcia')).toBeInTheDocument()
-    }, { timeout: 2000 })
+    })
   })
 
   it('AC3 — team tab shows invite button', async () => {
@@ -59,7 +109,7 @@ describe('SettingsPage', () => {
     await user.click(screen.getByRole('tab', { name: /team/i }))
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /invite/i })).toBeInTheDocument()
-    }, { timeout: 2000 })
+    })
   })
 
   it('AC5 — billing tab shows plan info', async () => {
@@ -68,17 +118,17 @@ describe('SettingsPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Current plan')).toBeInTheDocument()
       expect(screen.getByText('Upgrade to Pro')).toBeInTheDocument()
-    }, { timeout: 2000 })
+    })
   })
 
   it('AC3 — can invite a new team member', async () => {
     const { user } = renderSettings()
     await user.click(screen.getByRole('tab', { name: /team/i }))
-    await waitFor(() => screen.getByPlaceholderText(/teammate/i), { timeout: 2000 })
+    await waitFor(() => screen.getByPlaceholderText(/teammate/i))
     await user.type(screen.getByPlaceholderText(/teammate/i), 'new@team.com')
     await user.click(screen.getByRole('button', { name: /^invite$/i }))
     await waitFor(() => {
       expect(screen.getByText('Invite sent!')).toBeInTheDocument()
-    }, { timeout: 3000 })
+    })
   })
 })
