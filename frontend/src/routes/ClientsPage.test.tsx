@@ -46,9 +46,9 @@ function filterClients(search: string) {
   return MOCK_CLIENTS.filter(c => c.name.toLowerCase().includes(q) || c.phone.includes(q))
 }
 
-function renderClients(search = '') {
+function renderClients() {
   vi.mocked(useClients).mockImplementation((s) =>
-    ({ data: filterClients(s ?? ''), isLoading: false } as ReturnType<typeof useClients>)
+    ({ data: filterClients(s ?? ''), isLoading: false } as unknown as ReturnType<typeof useClients>)
   )
   vi.mocked(useUpdateClient).mockReturnValue({ mutate: vi.fn(), isPending: false } as unknown as ReturnType<typeof useUpdateClient>)
 

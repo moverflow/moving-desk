@@ -40,16 +40,16 @@ const MOCK_TEAM: TeamMember[] = [
 const MOCK_SUB = { plan: 'trial' as const, status: 'trialing' as const, trialEndsAt: new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString() }
 
 function setupMocks() {
-  vi.mocked(useSettings).mockReturnValue({ data: MOCK_SETTINGS } as ReturnType<typeof useSettings>)
+  vi.mocked(useSettings).mockReturnValue({ data: MOCK_SETTINGS } as unknown as ReturnType<typeof useSettings>)
   vi.mocked(useUpdateSettings).mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue(MOCK_SETTINGS), isPending: false } as unknown as ReturnType<typeof useUpdateSettings>)
   vi.mocked(useUploadLogo).mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue({ url: '' }), isPending: false } as unknown as ReturnType<typeof useUploadLogo>)
-  vi.mocked(useTeam).mockReturnValue({ data: MOCK_TEAM } as ReturnType<typeof useTeam>)
+  vi.mocked(useTeam).mockReturnValue({ data: MOCK_TEAM } as unknown as ReturnType<typeof useTeam>)
   vi.mocked(useInviteMember).mockReturnValue({
     mutate: vi.fn((_email, opts) => opts?.onSuccess?.({ message: 'Invite sent', email: _email })),
     isPending: false,
   } as unknown as ReturnType<typeof useInviteMember>)
   vi.mocked(useRemoveMember).mockReturnValue({ mutate: vi.fn(), isPending: false } as unknown as ReturnType<typeof useRemoveMember>)
-  vi.mocked(useSubscription).mockReturnValue({ data: MOCK_SUB } as ReturnType<typeof useSubscription>)
+  vi.mocked(useSubscription).mockReturnValue({ data: MOCK_SUB } as unknown as ReturnType<typeof useSubscription>)
 }
 
 function renderSettings() {
