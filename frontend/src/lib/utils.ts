@@ -28,3 +28,13 @@ export function formatCurrency(amount: number): string {
     maximumFractionDigits: 2,
   })}`
 }
+
+export function getPersonInitials(name: string): string {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
+}

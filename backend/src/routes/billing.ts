@@ -7,6 +7,7 @@ import {
   createCheckoutSession,
   createPortalSession,
   getStripeCustomerId,
+  getSubscription,
   handleWebhookEvent,
 } from '../services/billing.service.js'
 import type { AppVariables } from '../types/index.js'
@@ -14,6 +15,16 @@ import type { AppVariables } from '../types/index.js'
 const checkoutSchema = z.object({ plan: z.enum(['basic', 'pro']) })
 
 const billingRouter = new Hono<{ Variables: AppVariables }>()
+
+billingRouter.get('/subscription', authMiddleware, async (c) => {
+  const sub = await getSubscription(c.get('tenantId'))
+  if (!sub) return c.json({ error: 'Subscription not found' }, 404)
+  return c.json({
+    plan: sub.plan,
+    status: sub.status,
+    trialEndsAt: sub.trialEndsAt?.toISOString() ?? null,
+  })
+})
 
 billingRouter.post('/checkout', authMiddleware, requireOwner, async (c) => {
   let body: unknown

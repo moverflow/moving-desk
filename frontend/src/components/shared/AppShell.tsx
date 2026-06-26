@@ -3,8 +3,8 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { Kanban, Plus, Receipt, Users, Settings as SettingsIcon, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth.store'
-import { useSettings } from '@/hooks/useSettings'
 import TrialBanner from '@/components/shared/TrialBanner'
+import UserMenu from '@/components/shared/UserMenu'
 
 interface NavItem {
   to: string
@@ -38,7 +38,6 @@ function NavTab({ to, label, Icon }: NavItem): JSX.Element {
 
 export default function AppShell(): JSX.Element {
   const { user } = useAuthStore()
-  const { data: settings } = useSettings()
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -46,31 +45,17 @@ export default function AppShell(): JSX.Element {
         className="h-[60px] flex items-center justify-between px-8 sticky top-0 bg-white z-10"
         style={{ borderBottom: '0.5px solid #e5e7eb' }}
       >
-        <div className="flex items-center gap-2">
-          {settings?.logoUrl && (
-            <img
-              src={settings.logoUrl}
-              alt="Company logo"
-              style={{ width: 28, height: 28, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }}
-            />
-          )}
-          <span
-            className="text-base font-semibold select-none"
-            style={{ letterSpacing: '-0.01em' }}
-          >
-            Moving<strong style={{ color: '#1d9e75' }}>Desk</strong>
-          </span>
-        </div>
+        <span
+          className="text-base font-semibold select-none"
+          style={{ letterSpacing: '-0.01em' }}
+        >
+          Moving<strong style={{ color: '#1d9e75' }}>Desk</strong>
+        </span>
         <nav className="flex items-center gap-0.5">
           {NAV_ITEMS.map((item) => <NavTab key={item.to} {...item} />)}
           {user?.role === 'owner' && <NavTab to="/settings" label="Settings" Icon={SettingsIcon} />}
         </nav>
-        <div
-          className="h-8 w-8 rounded-full flex items-center justify-center text-white font-semibold shrink-0"
-          style={{ backgroundColor: '#1d9e75', fontSize: 12 }}
-        >
-          MD
-        </div>
+        <UserMenu />
       </header>
       <TrialBanner />
       <main className="flex-1">

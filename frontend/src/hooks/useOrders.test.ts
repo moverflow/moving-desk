@@ -1,21 +1,35 @@
 import { describe, it, expect } from 'vitest'
-import { findClientByPhone } from './useOrders'
+import type { Order, OrderStatus } from '@/types'
 
-describe('findClientByPhone', () => {
-  it('AC2 — returns client data for known phone numbers', () => {
-    const result = findClientByPhone('(949) 632-9557')
-    expect(result).not.toBeNull()
-    expect(result?.clientName).toBe('Rick Adams')
-    expect(result?.fromAddress).toBe('Lake Forest, CA 92630')
+function filterByStatus(orders: Order[], status: OrderStatus): Order[] {
+  return orders.filter((o) => o.status === status)
+}
+
+const SAMPLE_ORDERS: Order[] = [
+  {
+    id: 'o1', tenantId: 't1', clientName: 'Alice', phone: '(555) 000-0001',
+    fromAddress: 'A', toAddress: 'B', moveDate: '2026-07-01', homeSize: '2br',
+    status: 'new', fromFloor: 1, toFloor: 1, fromElevator: false, toElevator: false,
+    packing: false, totalPrice: 480, createdAt: '2026-06-01T00:00:00Z',
+  },
+  {
+    id: 'o2', tenantId: 't1', clientName: 'Bob', phone: '(555) 000-0002',
+    fromAddress: 'C', toAddress: 'D', moveDate: '2026-07-02', homeSize: 'house',
+    status: 'confirmed', fromFloor: 1, toFloor: 1, fromElevator: false, toElevator: false,
+    packing: true, totalPrice: 970, createdAt: '2026-06-02T00:00:00Z',
+  },
+]
+
+describe('order filtering by status', () => {
+  it('AC1 — filters new orders correctly', () => {
+    expect(filterByStatus(SAMPLE_ORDERS, 'new')).toHaveLength(1)
   })
 
-  it('AC2 — returns null for unknown phone', () => {
-    expect(findClientByPhone('(000) 000-0000')).toBeNull()
+  it('AC1 — filters confirmed orders correctly', () => {
+    expect(filterByStatus(SAMPLE_ORDERS, 'confirmed')).toHaveLength(1)
   })
 
-  it('AC2 — returns correct data for all mock clients', () => {
-    expect(findClientByPhone('(310) 555-0177')?.clientName).toBe('Tom Wilson')
-    expect(findClientByPhone('(657) 555-0201')?.clientName).toBe('Sarah Park')
-    expect(findClientByPhone('(714) 555-0142')?.clientName).toBe('James Lee')
+  it('AC1 — returns empty for statuses with no orders', () => {
+    expect(filterByStatus(SAMPLE_ORDERS, 'completed')).toHaveLength(0)
   })
 })

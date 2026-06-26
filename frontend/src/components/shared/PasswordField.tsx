@@ -9,6 +9,7 @@ interface PasswordFieldProps {
   label?: string
   value: string
   onChange: (value: string) => void
+  error?: string | null
 }
 
 export default function PasswordField({
@@ -16,6 +17,7 @@ export default function PasswordField({
   label = 'Password',
   value,
   onChange,
+  error = null,
 }: PasswordFieldProps): JSX.Element {
   const [show, setShow] = useState(false)
 
@@ -39,6 +41,7 @@ export default function PasswordField({
           {show ? <EyeOff size={16} /> : <Eye size={16} />}
         </button>
       </div>
+      {error !== null && <p className="text-sm text-destructive">{error}</p>}
     </div>
   )
 }

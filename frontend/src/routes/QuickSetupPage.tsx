@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import LogoUpload from '@/components/shared/LogoUpload'
+import { useUpdateSettings, useUploadLogo } from '@/hooks/useSettings'
 
 const TIMEZONES = [
   { value: 'America/New_York', label: 'America/New_York (ET)' },
@@ -25,11 +26,22 @@ const TIMEZONES = [
 export default function QuickSetupPage(): JSX.Element {
   const navigate = useNavigate()
   const [timezone, setTimezone] = useState('America/New_York')
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+  const { mutateAsync: updateSettings, isPending: isSaving } = useUpdateSettings()
+  const { mutateAsync: uploadLogo, isPending: isUploading } = useUploadLogo()
 
-  function handleSubmit(e: FormEvent<HTMLFormElement>): void {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>): Promise<void> {
     e.preventDefault()
+    let logoUrl: string | undefined
+    if (logoFile) {
+      const result = await uploadLogo(logoFile)
+      logoUrl = result.url
+    }
+    await updateSettings({ timezone, ...(logoUrl !== undefined && { logoUrl }) })
     navigate('/orders')
   }
+
+  const isPending = isSaving || isUploading
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
@@ -40,7 +52,7 @@ export default function QuickSetupPage(): JSX.Element {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            <LogoUpload onSkip={() => navigate('/orders')} />
+            <LogoUpload onSkip={() => navigate('/orders')} onFileSelect={setLogoFile} />
             <div className="space-y-1.5">
               <Label>Timezone</Label>
               <Select value={timezone} onValueChange={setTimezone}>
@@ -55,7 +67,9 @@ export default function QuickSetupPage(): JSX.Element {
               </Select>
             </div>
             <div className="flex flex-col gap-3">
-              <Button type="submit" className="w-full">Let's go →</Button>
+              <Button type="submit" className="w-full" disabled={isPending}>
+                {isPending ? 'Saving...' : 'Let\'s go →'}
+              </Button>
               <button
                 type="button"
                 onClick={() => navigate('/orders')}

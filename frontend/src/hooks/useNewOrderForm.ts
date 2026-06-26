@@ -8,6 +8,7 @@ import { useClientByPhone } from '@/hooks/useClients'
 export interface NewOrderFormState {
   phone: string
   clientName: string
+  clientEmail: string
   fromAddress: string
   toAddress: string
   moveDate: string
@@ -22,7 +23,7 @@ export interface NewOrderFormState {
 }
 
 const BLANK: NewOrderFormState = {
-  phone: '', clientName: '', fromAddress: '', toAddress: '',
+  phone: '', clientName: '', clientEmail: '', fromAddress: '', toAddress: '',
   moveDate: '', homeSize: '2br', fromFloor: 1, toFloor: 1,
   fromElevator: false, toElevator: false, packing: false,
   crewId: '', notes: '',
@@ -48,14 +49,20 @@ export function useNewOrderForm() {
 
   function handlePhoneBlur(): void {
     if (clientByPhone) {
-      setForm((p) => ({ ...p, clientName: clientByPhone.name }))
+      setForm((p) => ({
+        ...p,
+        clientName: clientByPhone.name,
+        clientEmail: clientByPhone.email || p.clientEmail,
+      }))
     }
   }
 
   function handleSubmit(e: FormEvent<HTMLFormElement>): void {
     e.preventDefault()
     const data: CreateOrderData = {
-      clientName: form.clientName, phone: form.phone,
+      clientName: form.clientName,
+      phone: form.phone,
+      ...(form.clientEmail.trim() ? { clientEmail: form.clientEmail.trim() } : {}),
       fromAddress: form.fromAddress, toAddress: form.toAddress,
       moveDate: form.moveDate, homeSize: form.homeSize,
       crewId: form.crewId || undefined,

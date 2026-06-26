@@ -1,11 +1,27 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import JoinPage from './JoinPage'
 import { useAuthStore } from '@/store/auth.store'
 
+vi.mock('@/hooks/useAuth', () => ({
+  useJoin: vi.fn(),
+}))
+
+import { useJoin } from '@/hooks/useAuth'
+
+const MOCK_AUTH = {
+  user: { id: 'user-2', email: 'jane@bestmovers.com', name: 'Jane Doe', role: 'dispatcher' },
+  tenant: { id: 'tenant-1', name: 'Best & Pro Moving Service', plan: 'trial' },
+}
+
 function renderJoin(token = 'abc-token-123') {
+  vi.mocked(useJoin).mockReturnValue({
+    mutate: vi.fn((_data, opts) => opts?.onSuccess?.(MOCK_AUTH)),
+    isPending: false,
+  } as unknown as ReturnType<typeof useJoin>)
+
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={qc}>
@@ -48,7 +64,6 @@ describe('JoinPage', () => {
 
   it('AC7 — token is read from URL query param', () => {
     renderJoin('my-invite-token')
-    // Token is consumed internally by the mutation — verify page renders correctly with token in URL
     expect(screen.getByRole('button', { name: /join team/i })).toBeInTheDocument()
   })
 })

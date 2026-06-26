@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { subscriptions, tenants, users } from '../db/schema.js'
 import { signToken } from '../lib/jwt.js'
@@ -113,4 +113,22 @@ export async function registerTenantAndUser(params: {
   }
 
   return result
+}
+
+export async function getMeData(userId: string, tenantId: string) {
+  const rows = await db
+    .select({
+      userId: users.id,
+      userEmail: users.email,
+      userName: users.name,
+      userRole: users.role,
+      tenantId: tenants.id,
+      tenantName: tenants.name,
+      tenantPlan: tenants.plan,
+    })
+    .from(users)
+    .innerJoin(tenants, eq(tenants.id, users.tenant_id))
+    .where(and(eq(users.id, userId), eq(users.tenant_id, tenantId)))
+    .limit(1)
+  return rows[0] ?? null
 }

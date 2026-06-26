@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 interface AddressFieldsProps {
-  form: Pick<NewOrderFormState, 'phone' | 'clientName' | 'fromAddress' | 'toAddress'>
+  form: Pick<NewOrderFormState, 'phone' | 'clientName' | 'clientEmail' | 'fromAddress' | 'toAddress'>
   set: <K extends keyof NewOrderFormState>(k: K, v: NewOrderFormState[K]) => void
   onPhoneBlur: () => void
 }
@@ -21,6 +21,10 @@ export default function AddressFields({ form, set, onPhoneBlur }: AddressFieldsP
           <Label htmlFor="clientName">Client name</Label>
           <Input id="clientName" required value={form.clientName} onChange={(e) => set('clientName', e.target.value)} />
         </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="clientEmail">Client email</Label>
+        <Input id="clientEmail" type="email" value={form.clientEmail} onChange={(e) => set('clientEmail', e.target.value)} placeholder="client@email.com" />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">

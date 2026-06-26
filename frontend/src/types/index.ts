@@ -52,6 +52,7 @@ export interface Invoice {
   status: InvoiceStatus
   clientName: string
   clientPhone: string
+  clientEmail: string
   fromAddress: string
   toAddress: string
   moveDate: string
@@ -111,6 +112,7 @@ export interface Client {
 export interface CreateOrderData {
   clientName: string
   phone: string
+  clientEmail?: string
   fromAddress: string
   toAddress: string
   moveDate: string

@@ -47,3 +47,6 @@ coverage/
 # Misc
 .cache/
 *.pem
+
+# Local file uploads (dev fallback when R2 is not configured)
+backend/uploads/

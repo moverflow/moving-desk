@@ -9,19 +9,6 @@ interface AuthState {
   clearAuth: () => void
 }
 
-export const MOCK_USER: User = {
-  id: 'mock-user-1',
-  email: 'owner@bestmovers.com',
-  name: 'John Smith',
-  role: 'owner',
-}
-
-export const MOCK_TENANT: Tenant = {
-  id: 'mock-tenant-1',
-  name: 'Best & Pro Moving',
-  plan: 'trial',
-}
-
 export const useAuthStore = create<AuthState>()((set) => ({
   user: null,
   tenant: null,

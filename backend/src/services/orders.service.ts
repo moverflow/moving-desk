@@ -1,6 +1,6 @@
 import { and, desc, eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { clients, orders, tenants } from '../db/schema.js'
+import { clients, crews, orders, tenants } from '../db/schema.js'
 import type { HomeSize, OrderStatus, TenantSettings } from '../types/index.js'
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -15,13 +15,41 @@ export function isValidTransition(from: string, to: string): boolean {
   return VALID_TRANSITIONS[from]?.includes(to) ?? false
 }
 
+const orderSelectFields = {
+  id: orders.id,
+  tenant_id: orders.tenant_id,
+  client_id: orders.client_id,
+  crew_id: orders.crew_id,
+  status: orders.status,
+  move_date: orders.move_date,
+  from_address: orders.from_address,
+  to_address: orders.to_address,
+  from_floor: orders.from_floor,
+  to_floor: orders.to_floor,
+  from_elevator: orders.from_elevator,
+  to_elevator: orders.to_elevator,
+  home_size: orders.home_size,
+  packing: orders.packing,
+  notes: orders.notes,
+  base_price: orders.base_price,
+  total_price: orders.total_price,
+  created_at: orders.created_at,
+  updated_at: orders.updated_at,
+  clientName: clients.name,
+  clientPhone: clients.phone,
+  crewName: crews.name,
+  crewTruckLabel: crews.truck_label,
+}
+
 export async function listOrders(
   tenantId: string,
   filters: { status?: OrderStatus; date?: string; crewId?: string }
 ) {
   return db
-    .select()
+    .select(orderSelectFields)
     .from(orders)
+    .leftJoin(clients, eq(clients.id, orders.client_id))
+    .leftJoin(crews, eq(crews.id, orders.crew_id))
     .where(
       and(
         eq(orders.tenant_id, tenantId),
@@ -35,8 +63,10 @@ export async function listOrders(
 
 export async function getOrderById(tenantId: string, orderId: string) {
   const rows = await db
-    .select()
+    .select(orderSelectFields)
     .from(orders)
+    .leftJoin(clients, eq(clients.id, orders.client_id))
+    .leftJoin(crews, eq(crews.id, orders.crew_id))
     .where(and(eq(orders.id, orderId), eq(orders.tenant_id, tenantId)))
     .limit(1)
   return rows[0] ?? null
@@ -45,18 +75,33 @@ export async function getOrderById(tenantId: string, orderId: string) {
 export async function findOrCreateClient(
   tenantId: string,
   phone: string,
-  name: string
+  name: string,
+  email?: string
 ): Promise<string> {
   const existing = await db
-    .select({ id: clients.id })
+    .select({ id: clients.id, email: clients.email })
     .from(clients)
     .where(and(eq(clients.tenant_id, tenantId), eq(clients.phone, phone)))
     .limit(1)
-  if (existing[0]) return existing[0].id
+
+  if (existing[0]) {
+    if (email && !existing[0].email) {
+      await db
+        .update(clients)
+        .set({ email })
+        .where(and(eq(clients.id, existing[0].id), eq(clients.tenant_id, tenantId)))
+    }
+    return existing[0].id
+  }
 
   const [created] = await db
     .insert(clients)
-    .values({ tenant_id: tenantId, name, phone })
+    .values({
+      tenant_id: tenantId,
+      name,
+      phone,
+      ...(email ? { email } : {}),
+    })
     .returning({ id: clients.id })
   return created.id
 }
