@@ -3,21 +3,34 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import CompanyTab from '@/components/shared/CompanyTab'
 import TeamTab from '@/components/shared/TeamTab'
 import BillingTab from '@/components/shared/BillingTab'
+import PageContainer from '@/components/shared/PageContainer'
+
+const cardStyle: React.CSSProperties = {
+  background: 'white',
+  border: '0.5px solid #e0e0dc',
+  borderRadius: 12,
+  padding: '28px 32px',
+  boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+}
 
 export default function SettingsPage(): JSX.Element {
   return (
-    <div className="p-4 max-w-2xl">
-      <h1 className="text-xl font-semibold mb-4">Settings</h1>
-      <Tabs defaultValue="company">
-        <TabsList>
-          <TabsTrigger value="company">Company</TabsTrigger>
-          <TabsTrigger value="team">Team</TabsTrigger>
-          <TabsTrigger value="billing">Billing</TabsTrigger>
-        </TabsList>
-        <TabsContent value="company"><CompanyTab /></TabsContent>
-        <TabsContent value="team"><TeamTab /></TabsContent>
-        <TabsContent value="billing"><BillingTab /></TabsContent>
-      </Tabs>
-    </div>
+    <PageContainer variant="narrow">
+      <div className="py-8">
+        <h1 className="text-xl font-semibold mb-4">Settings</h1>
+        <div style={cardStyle}>
+          <Tabs defaultValue="company">
+            <TabsList>
+              <TabsTrigger value="company">Company</TabsTrigger>
+              <TabsTrigger value="team">Team</TabsTrigger>
+              <TabsTrigger value="billing">Billing</TabsTrigger>
+            </TabsList>
+            <TabsContent value="company"><CompanyTab /></TabsContent>
+            <TabsContent value="team"><TeamTab /></TabsContent>
+            <TabsContent value="billing"><BillingTab /></TabsContent>
+          </Tabs>
+        </div>
+      </div>
+    </PageContainer>
   )
 }

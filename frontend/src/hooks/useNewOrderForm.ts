@@ -2,7 +2,8 @@ import type { FormEvent } from 'react'
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import type { HomeSize, CreateOrderData } from '@/types'
-import { useCreateOrder, findClientByPhone } from '@/hooks/useOrders'
+import { useCreateOrder } from '@/hooks/useOrders'
+import { useClientByPhone } from '@/hooks/useClients'
 
 export interface NewOrderFormState {
   phone: string
@@ -39,13 +40,16 @@ export function useNewOrderForm() {
     clientName: prefill.clientName ?? '',
   }))
 
+  const { data: clientByPhone } = useClientByPhone(form.phone)
+
   function set<K extends keyof NewOrderFormState>(k: K, v: NewOrderFormState[K]): void {
     setForm((p) => ({ ...p, [k]: v }))
   }
 
   function handlePhoneBlur(): void {
-    const client = findClientByPhone(form.phone)
-    if (client) setForm((p) => ({ ...p, ...client }))
+    if (clientByPhone) {
+      setForm((p) => ({ ...p, clientName: clientByPhone.name }))
+    }
   }
 
   function handleSubmit(e: FormEvent<HTMLFormElement>): void {
