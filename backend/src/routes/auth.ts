@@ -3,7 +3,6 @@ import { Hono } from 'hono'
 import { setCookie } from 'hono/cookie'
 import { z } from 'zod'
 import { sendWelcomeEmail } from '../lib/email.js'
-import { env } from '../lib/env.js'
 import { signToken } from '../lib/jwt.js'
 import { authMiddleware } from '../middleware/auth.js'
 import {
@@ -80,10 +79,10 @@ auth.post('/register', async (c) => {
 
   setCookie(c, 'token', jwt, {
     httpOnly: true,
-    sameSite: 'Lax',
+    sameSite: 'None',
     path: '/',
     maxAge: 60 * 60 * 24 * 7,
-    secure: env.NODE_ENV === 'production',
+    secure: true,
   })
 
   return c.json(
@@ -154,10 +153,10 @@ auth.post('/login', async (c) => {
 
   setCookie(c, 'token', jwt, {
     httpOnly: true,
-    sameSite: 'Lax',
+    sameSite: 'None',
     path: '/',
     maxAge: 60 * 60 * 24 * 7,
-    secure: env.NODE_ENV === 'production',
+    secure: true,
   })
 
   return c.json({
@@ -187,10 +186,10 @@ auth.get('/me', authMiddleware, async (c) => {
 auth.post('/logout', authMiddleware, async (c) => {
   setCookie(c, 'token', '', {
     httpOnly: true,
-    sameSite: 'Lax',
+    sameSite: 'None',
     path: '/',
-    maxAge: 0,
-    secure: env.NODE_ENV === 'production',
+    maxAge: 60 * 60 * 24 * 7,
+    secure: true,
   })
   return c.json({ message: 'Logged out' })
 })
