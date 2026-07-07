@@ -3,13 +3,16 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Client } from '@/types'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import ClientTableRow from '@/components/shared/ClientTableRow'
 import ClientDetailSheet from '@/components/shared/ClientDetailSheet'
+import AddClientPanel from '@/components/shared/AddClientPanel'
 import { useClients } from '@/hooks/useClients'
 
 export default function ClientsPage(): JSX.Element {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Client | null>(null)
+  const [isAddOpen, setIsAddOpen] = useState<boolean>(false)
   const { data: clients = [], isLoading } = useClients(search || undefined)
   const navigate = useNavigate()
 
@@ -19,9 +22,12 @@ export default function ClientsPage(): JSX.Element {
 
   return (
     <div className="p-4">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 gap-3">
         <h1 className="text-xl font-semibold">Clients</h1>
-        <Input placeholder="Search by name or phone…" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />
+        <div className="flex items-center gap-3">
+          <Input placeholder="Search by name or phone…" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />
+          <Button onClick={() => setIsAddOpen(true)}>+ Add client</Button>
+        </div>
       </div>
       {isLoading
         ? <div className="flex justify-center py-12"><div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-gray-900" /></div>
@@ -45,6 +51,9 @@ export default function ClientsPage(): JSX.Element {
         )}
       {selected !== null && (
         <ClientDetailSheet key={selected.id} client={selected} onNewOrder={handleNewOrder} onClose={() => setSelected(null)} />
+      )}
+      {isAddOpen && (
+        <AddClientPanel onClose={() => setIsAddOpen(false)} />
       )}
     </div>
   )
