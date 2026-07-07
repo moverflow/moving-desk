@@ -2,6 +2,7 @@ import type { JSX } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import AppShell from '@/components/shared/AppShell'
 import ProtectedRoute from '@/components/shared/ProtectedRoute'
+import DashboardPage from '@/routes/DashboardPage'
 import OrdersPage from '@/routes/OrdersPage'
 import NewOrderPage from '@/routes/NewOrderPage'
 import InvoicesPage from '@/routes/InvoicesPage'
@@ -12,6 +13,12 @@ import QuickSetupPage from '@/routes/QuickSetupPage'
 import JoinPage from '@/routes/JoinPage'
 import PublicInvoicePage from '@/routes/PublicInvoicePage'
 import SettingsPage from '@/routes/SettingsPage'
+import { useAuthStore } from '@/store/auth.store'
+
+function DefaultRedirect(): JSX.Element {
+  const role = useAuthStore((s) => s.user?.role)
+  return <Navigate to={role === 'owner' ? '/dashboard' : '/orders'} replace />
+}
 
 export default function App(): JSX.Element {
   return (
@@ -23,7 +30,8 @@ export default function App(): JSX.Element {
       <Route path="/i/:token" element={<PublicInvoicePage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
-          <Route path="/" element={<Navigate to="/orders" replace />} />
+          <Route path="/" element={<DefaultRedirect />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/orders" element={<OrdersPage />} />
           <Route path="/new-order" element={<NewOrderPage />} />
           <Route path="/invoices" element={<InvoicesPage />} />
