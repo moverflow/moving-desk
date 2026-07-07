@@ -1,6 +1,6 @@
 import type { JSX } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { Kanban, Plus, Receipt, Users, Settings as SettingsIcon, type LucideIcon } from 'lucide-react'
+import { Kanban, LayoutDashboard, Plus, Receipt, Users, Settings as SettingsIcon, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth.store'
 import TrialBanner from '@/components/shared/TrialBanner'
@@ -52,6 +52,7 @@ export default function AppShell(): JSX.Element {
           Moving<strong style={{ color: '#1d9e75' }}>Desk</strong>
         </span>
         <nav className="flex items-center gap-0.5">
+          {user?.role === 'owner' && <NavTab to="/dashboard" label="Dashboard" Icon={LayoutDashboard} />}
           {NAV_ITEMS.map((item) => <NavTab key={item.to} {...item} />)}
           {user?.role === 'owner' && <NavTab to="/settings" label="Settings" Icon={SettingsIcon} />}
         </nav>

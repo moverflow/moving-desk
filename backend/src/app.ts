@@ -9,6 +9,7 @@ import { UPLOADS_ROOT } from './lib/r2.js'
 import auth from './routes/auth.js'
 import billing from './routes/billing.js'
 import clients from './routes/clients.js'
+import dashboard from './routes/dashboard.js'
 import settings from './routes/settings.js'
 import crews from './routes/crews.js'
 import invoices from './routes/invoices.js'
@@ -35,6 +36,7 @@ app.route('/invoices', invoices)
 app.route('/clients', clients)
 app.route('/billing', billing)
 app.route('/settings', settings)
+app.route('/dashboard', dashboard)
 
 const UPLOAD_MIME: Record<string, string> = {
   jpg: 'image/jpeg',

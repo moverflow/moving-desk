@@ -109,6 +109,43 @@ export interface Client {
   createdAt: string
 }
 
+export type DashboardPeriod = 'week' | 'month' | 'quarter'
+
+export interface DashboardSummary {
+  totalOrders: number
+  completedOrders: number
+  cancelledOrders: number
+  totalRevenue: number
+  avgOrderValue: number
+}
+
+export interface DashboardStatusRow {
+  status: string
+  count: number
+  revenue: number
+}
+
+export interface DashboardWeekRow {
+  week: string
+  orders: number
+  revenue: number
+}
+
+export interface DashboardCrewRow {
+  crewName: string
+  truckLabel: string
+  ordersCount: number
+  revenue: number
+}
+
+export interface DashboardResponse {
+  period: DashboardPeriod
+  summary: DashboardSummary
+  ordersByStatus: DashboardStatusRow[]
+  ordersByWeek: DashboardWeekRow[]
+  topCrews: DashboardCrewRow[]
+}
+
 export interface CreateOrderData {
   clientName: string
   phone: string
