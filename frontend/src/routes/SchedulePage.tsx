@@ -1,4 +1,4 @@
-import type { JSX } from 'react'
+import type { JSX, RefObject } from 'react'
 import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import FullCalendar from '@fullcalendar/react'
@@ -42,14 +42,16 @@ interface OrderEventProps {
   status: OrderStatus
 }
 
-function orderToEvent(order: Order): {
+interface OrderEvent {
   id: string
   title: string
   date: string
   backgroundColor: string
   borderColor: string
   extendedProps: OrderEventProps
-} {
+}
+
+function orderToEvent(order: Order): OrderEvent {
   const homeSizeLabel = HOME_SIZE_LABEL[order.homeSize] ?? order.homeSize
   return {
     id: order.id,
@@ -105,6 +107,17 @@ interface SelectedOrder {
   status: OrderStatus
 }
 
+function toSelectedOrder(props: OrderEventProps): SelectedOrder {
+  return {
+    clientName: props.clientName,
+    homeSize: props.homeSizeLabel,
+    fromAddress: props.fromAddress,
+    toAddress: props.toAddress,
+    crewName: props.crewName,
+    status: props.status,
+  }
+}
+
 function OrderDetailPanel({ order, onClose }: { order: SelectedOrder; onClose: () => void }): JSX.Element {
   return (
     <Sheet open onOpenChange={(open) => { if (!open) onClose() }}>
@@ -125,6 +138,37 @@ function OrderDetailPanel({ order, onClose }: { order: SelectedOrder; onClose: (
   )
 }
 
+interface ScheduleCalendarProps {
+  isLoading: boolean
+  events: OrderEvent[]
+  calendarRef: RefObject<FullCalendar>
+  onEventClick: (arg: EventClickArg) => void
+}
+
+function ScheduleCalendar({ isLoading, events, calendarRef, onEventClick }: ScheduleCalendarProps): JSX.Element {
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-12">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-gray-900" />
+      </div>
+    )
+  }
+  return (
+    <FullCalendar
+      ref={calendarRef}
+      plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+      initialView="timeGridWeek"
+      headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}
+      events={events}
+      eventContent={EventContent}
+      eventClick={onEventClick}
+      editable={false}
+      selectable={false}
+      height="auto"
+    />
+  )
+}
+
 export default function SchedulePage(): JSX.Element {
   const { data: orders, isLoading } = useOrders()
   const calendarRef = useRef<FullCalendar>(null)
@@ -139,15 +183,7 @@ export default function SchedulePage(): JSX.Element {
   }
 
   function handleEventClick(arg: EventClickArg): void {
-    const props = arg.event.extendedProps as OrderEventProps
-    setSelected({
-      clientName: props.clientName,
-      homeSize: props.homeSizeLabel,
-      fromAddress: props.fromAddress,
-      toAddress: props.toAddress,
-      crewName: props.crewName,
-      status: props.status,
-    })
+    setSelected(toSelectedOrder(arg.event.extendedProps as OrderEventProps))
   }
 
   return (
@@ -157,26 +193,12 @@ export default function SchedulePage(): JSX.Element {
         <ViewToggle view={view} onChange={handleViewChange} />
       </div>
 
-      {isLoading
-        ? (
-          <div className="flex justify-center py-12">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-gray-900" />
-          </div>
-        )
-        : (
-          <FullCalendar
-            ref={calendarRef}
-            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-            initialView="timeGridWeek"
-            headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}
-            events={events}
-            eventContent={EventContent}
-            eventClick={handleEventClick}
-            editable={false}
-            selectable={false}
-            height="auto"
-          />
-        )}
+      <ScheduleCalendar
+        isLoading={isLoading}
+        events={events}
+        calendarRef={calendarRef}
+        onEventClick={handleEventClick}
+      />
 
       {selected && <OrderDetailPanel order={selected} onClose={() => setSelected(null)} />}
     </div>
