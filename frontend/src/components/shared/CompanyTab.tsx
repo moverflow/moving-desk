@@ -3,19 +3,19 @@ import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import BaseRatesFields from './BaseRatesFields'
 import LogoField from './LogoField'
 import { useSettings, useUpdateSettings, useUploadLogo, useSubscription } from '@/hooks/useSettings'
-
-const TIMEZONES = [
-  { value: 'America/New_York', label: 'America/New_York (ET)' },
-  { value: 'America/Chicago', label: 'America/Chicago (CT)' },
-  { value: 'America/Denver', label: 'America/Denver (MT)' },
-  { value: 'America/Los_Angeles', label: 'America/Los_Angeles (PT)' },
-  { value: 'America/Anchorage', label: 'America/Anchorage (AKT)' },
-  { value: 'Pacific/Honolulu', label: 'Pacific/Honolulu (HT)' },
-]
+import { getGroupedTimezones } from '@/lib/utils'
 
 export default function CompanyTab(): JSX.Element {
   const { data: settings } = useSettings()
@@ -68,7 +68,14 @@ export default function CompanyTab(): JSX.Element {
         <Label>Timezone</Label>
         <Select value={timezone} onValueChange={setTimezone} disabled={isReadOnly}>
           <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>{TIMEZONES.map(({ value, label }) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent>
+          <SelectContent>
+            {Object.entries(getGroupedTimezones()).map(([region, timezones]) => (
+              <SelectGroup key={region}>
+                <SelectLabel>{region}</SelectLabel>
+                {timezones.map((tz) => <SelectItem key={tz} value={tz}>{tz}</SelectItem>)}
+              </SelectGroup>
+            ))}
+          </SelectContent>
         </Select>
       </div>
       <BaseRatesFields rates={rates} onChange={(k, v) => setRates((p) => ({ ...p, [k]: v }))} disabled={isReadOnly} />

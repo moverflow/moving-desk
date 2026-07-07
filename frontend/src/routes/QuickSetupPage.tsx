@@ -7,21 +7,15 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
 import LogoUpload from '@/components/shared/LogoUpload'
 import { useUpdateSettings, useUploadLogo } from '@/hooks/useSettings'
-
-const TIMEZONES = [
-  { value: 'America/New_York', label: 'America/New_York (ET)' },
-  { value: 'America/Chicago', label: 'America/Chicago (CT)' },
-  { value: 'America/Denver', label: 'America/Denver (MT)' },
-  { value: 'America/Los_Angeles', label: 'America/Los_Angeles (PT)' },
-  { value: 'America/Anchorage', label: 'America/Anchorage (AKT)' },
-  { value: 'Pacific/Honolulu', label: 'Pacific/Honolulu (HT)' },
-]
+import { getGroupedTimezones } from '@/lib/utils'
 
 export default function QuickSetupPage(): JSX.Element {
   const navigate = useNavigate()
@@ -60,8 +54,13 @@ export default function QuickSetupPage(): JSX.Element {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {TIMEZONES.map(({ value, label }) => (
-                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  {Object.entries(getGroupedTimezones()).map(([region, timezones]) => (
+                    <SelectGroup key={region}>
+                      <SelectLabel>{region}</SelectLabel>
+                      {timezones.map((tz) => (
+                        <SelectItem key={tz} value={tz}>{tz}</SelectItem>
+                      ))}
+                    </SelectGroup>
                   ))}
                 </SelectContent>
               </Select>

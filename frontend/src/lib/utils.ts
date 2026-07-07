@@ -38,3 +38,17 @@ export function getPersonInitials(name: string): string {
     .slice(0, 2)
     .toUpperCase()
 }
+
+export function getAllTimezones(): string[] {
+  return Intl.supportedValuesOf('timeZone')
+}
+
+export function getGroupedTimezones(): Record<string, string[]> {
+  const all = Intl.supportedValuesOf('timeZone')
+  return all.reduce((acc, tz) => {
+    const region = tz.split('/')[0]
+    if (!acc[region]) acc[region] = []
+    acc[region].push(tz)
+    return acc
+  }, {} as Record<string, string[]>)
+}
