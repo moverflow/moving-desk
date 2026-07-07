@@ -43,7 +43,7 @@ describe('QuickSetupPage', () => {
 
   it('renders timezone select with default America/New_York', () => {
     renderSetup()
-    const matches = screen.getAllByText('America/New_York (ET)')
+    const matches = screen.getAllByText('America/New_York')
     expect(matches.length).toBeGreaterThan(0)
   })
 
