@@ -1,6 +1,6 @@
 import type { JSX } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { Kanban, LayoutDashboard, Plus, Receipt, Users, Settings as SettingsIcon, type LucideIcon } from 'lucide-react'
+import { CalendarDays, Kanban, LayoutDashboard, Plus, Receipt, Users, Settings as SettingsIcon, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth.store'
 import TrialBanner from '@/components/shared/TrialBanner'
@@ -14,6 +14,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { to: '/orders', label: 'Orders', Icon: Kanban },
+  { to: '/schedule', label: 'Schedule', Icon: CalendarDays },
   { to: '/new-order', label: 'New order', Icon: Plus },
   { to: '/invoices', label: 'Invoices', Icon: Receipt },
   { to: '/clients', label: 'Clients', Icon: Users },

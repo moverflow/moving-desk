@@ -4,6 +4,7 @@ import AppShell from '@/components/shared/AppShell'
 import ProtectedRoute from '@/components/shared/ProtectedRoute'
 import DashboardPage from '@/routes/DashboardPage'
 import OrdersPage from '@/routes/OrdersPage'
+import SchedulePage from '@/routes/SchedulePage'
 import NewOrderPage from '@/routes/NewOrderPage'
 import InvoicesPage from '@/routes/InvoicesPage'
 import ClientsPage from '@/routes/ClientsPage'
@@ -33,6 +34,7 @@ export default function App(): JSX.Element {
           <Route path="/" element={<DefaultRedirect />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/orders" element={<OrdersPage />} />
+          <Route path="/schedule" element={<SchedulePage />} />
           <Route path="/new-order" element={<NewOrderPage />} />
           <Route path="/invoices" element={<InvoicesPage />} />
           <Route path="/clients" element={<ClientsPage />} />
