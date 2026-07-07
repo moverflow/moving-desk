@@ -11,7 +11,7 @@ const STATUS_BORDER: Record<OrderStatus, string> = {
   cancelled: 'border-l-gray-300',
 }
 
-const HOME_SIZE_LABEL: Record<string, string> = {
+export const HOME_SIZE_LABEL: Record<string, string> = {
   studio: 'Studio', '1br': '1 BR', '2br': '2 BR', '3br': '3 BR', house: 'House',
 }
 
