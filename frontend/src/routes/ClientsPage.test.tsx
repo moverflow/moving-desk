@@ -4,14 +4,16 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import ClientsPage from './ClientsPage'
 import type { Client } from '@/types'
+import { ApiError } from '@/lib/api'
 
 vi.mock('@/hooks/useClients', () => ({
   useClients: vi.fn(),
   useUpdateClient: vi.fn(),
   useClient: vi.fn(),
+  useCreateClient: vi.fn(),
 }))
 
-import { useClients, useUpdateClient } from '@/hooks/useClients'
+import { useClients, useUpdateClient, useCreateClient } from '@/hooks/useClients'
 
 const MOCK_CLIENTS: Client[] = [
   {
@@ -46,11 +48,14 @@ function filterClients(search: string) {
   return MOCK_CLIENTS.filter(c => c.name.toLowerCase().includes(q) || c.phone.includes(q))
 }
 
-function renderClients() {
+function renderClients(createClientMock?: ReturnType<typeof useCreateClient>) {
   vi.mocked(useClients).mockImplementation((s) =>
     ({ data: filterClients(s ?? ''), isLoading: false } as unknown as ReturnType<typeof useClients>)
   )
   vi.mocked(useUpdateClient).mockReturnValue({ mutate: vi.fn(), isPending: false } as unknown as ReturnType<typeof useUpdateClient>)
+  vi.mocked(useCreateClient).mockReturnValue(
+    createClientMock ?? ({ mutate: vi.fn(), isPending: false } as unknown as ReturnType<typeof useCreateClient>)
+  )
 
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
@@ -113,5 +118,46 @@ describe('ClientsPage', () => {
       expect(screen.getByText('Last move')).toBeInTheDocument()
       expect(screen.getByText('Orders')).toBeInTheDocument()
     })
+  })
+
+  it('AC3 — Add client button opens panel, valid submit calls createClient and closes panel', async () => {
+    const mutate = vi.fn((_vars, opts: { onSuccess?: () => void }) => opts.onSuccess?.())
+    renderClients({ mutate, isPending: false } as unknown as ReturnType<typeof useCreateClient>)
+    await waitFor(() => screen.getByText('Rick Adams'))
+
+    fireEvent.click(screen.getByRole('button', { name: /add client/i }))
+    await waitFor(() => screen.getByLabelText('Name'))
+
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'New Person' } })
+    fireEvent.click(screen.getByRole('button', { name: /save client/i }))
+
+    await waitFor(() => {
+      expect(mutate).toHaveBeenCalledWith(
+        { name: 'New Person', phone: undefined, email: undefined, notes: undefined },
+        expect.any(Object),
+      )
+    })
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+    })
+  })
+
+  it('AC4 — duplicate phone shows inline error under phone field, panel stays open', async () => {
+    const mutate = vi.fn((_vars, opts: { onError?: (err: unknown) => void }) =>
+      opts.onError?.(new ApiError(409, 'Client with this phone already exists')),
+    )
+    renderClients({ mutate, isPending: false } as unknown as ReturnType<typeof useCreateClient>)
+    await waitFor(() => screen.getByText('Rick Adams'))
+
+    fireEvent.click(screen.getByRole('button', { name: /add client/i }))
+    await waitFor(() => screen.getByLabelText('Name'))
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Dup Name' } })
+    fireEvent.change(screen.getByLabelText('Phone'), { target: { value: '(949) 555-0188' } })
+    fireEvent.click(screen.getByRole('button', { name: /save client/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/already exists/i)).toBeInTheDocument()
+    })
+    expect(screen.getByLabelText('Name')).toBeInTheDocument()
   })
 })
