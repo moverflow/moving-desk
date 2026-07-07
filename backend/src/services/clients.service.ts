@@ -1,6 +1,18 @@
 import { and, eq, ilike, or, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { clients, orders } from '../db/schema.js'
+import { logger } from '../lib/logger.js'
+
+const UNIQUE_VIOLATION_CODE = '23505'
+
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'code' in err &&
+    (err as { code: unknown }).code === UNIQUE_VIOLATION_CODE
+  )
+}
 
 export async function listClients(tenantId: string, search?: string) {
   return db
@@ -71,4 +83,37 @@ export async function updateClient(
     .where(and(eq(clients.id, clientId), eq(clients.tenant_id, tenantId)))
     .returning()
   return updated ?? null
+}
+
+export async function createClient(
+  tenantId: string,
+  input: { name: string; phone?: string; email?: string; notes?: string }
+) {
+  if (input.phone) {
+    const existing = await db
+      .select({ id: clients.id })
+      .from(clients)
+      .where(and(eq(clients.tenant_id, tenantId), eq(clients.phone, input.phone)))
+      .limit(1)
+
+    if (existing[0]) return null
+  }
+
+  try {
+    const [created] = await db
+      .insert(clients)
+      .values({
+        tenant_id: tenantId,
+        name: input.name,
+        ...(input.phone ? { phone: input.phone } : {}),
+        ...(input.email ? { email: input.email } : {}),
+        ...(input.notes ? { notes: input.notes } : {}),
+      })
+      .returning()
+    return created
+  } catch (err) {
+    if (isUniqueViolation(err)) return null
+    logger.error({ err }, 'Failed to create client')
+    throw err
+  }
 }

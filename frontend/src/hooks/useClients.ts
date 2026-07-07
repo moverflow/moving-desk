@@ -60,6 +60,18 @@ export function useUpdateClient() {
   })
 }
 
+export function useCreateClient() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { name: string; phone?: string; email?: string; notes?: string }) =>
+      apiFetch<{ client: RawClient }>('/clients', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }).then((res) => mapClient(res.client)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['clients'] }),
+  })
+}
+
 export function useClientByPhone(phone: string) {
   return useQuery<Client | null>({
     queryKey: ['client-lookup', phone],
