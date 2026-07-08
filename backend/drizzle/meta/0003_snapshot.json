@@ -1,6 +1,6 @@
 {
-  "id": "ddfd28b6-3b5d-412c-89ed-8f30c91d7c26",
-  "prevId": "36ad5043-5b5a-4bd2-b007-57be4f2cc951",
+  "id": "478d61d4-066a-44c9-8c52-269be63332c2",
+  "prevId": "ddfd28b6-3b5d-412c-89ed-8f30c91d7c26",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -151,6 +151,12 @@
         "truck_label": {
           "name": "truck_label",
           "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "phone": {
+          "name": "phone",
+          "type": "varchar(20)",
           "primaryKey": false,
           "notNull": false
         },

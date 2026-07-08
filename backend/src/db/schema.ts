@@ -257,6 +257,28 @@ export const invites = pgTable('invites', {
 // Таблица маленькая — доп. индексов не нужно
 )
 
+// ─── ORDER FILES ──────────────────────────────────────────────────────────────
+export const orderFiles = pgTable('order_files', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenant_id: uuid('tenant_id').notNull().references(() => tenants.id),
+  order_id: uuid('order_id').notNull().references(() => orders.id),
+  name: varchar('name', { length: 255 }).notNull(),
+  url: text('url').notNull(),
+
+  // Ключ объекта в R2 — нужен для DeleteObjectCommand при удалении файла
+  // Не в исходной спецификации таблицы, но без него нельзя удалить объект из R2
+  key: text('key').notNull(),
+
+  size: integer('size').notNull(),
+  mime_type: varchar('mime_type', { length: 100 }).notNull(),
+  uploaded_by: uuid('uploaded_by').notNull().references(() => users.id),
+  created_at: timestamp('created_at').defaultNow(),
+},
+(table) => ({
+  // Список файлов заказа: WHERE order_id = ? AND tenant_id = ?
+  orderIdIdx: index('order_files_order_id_idx').on(table.order_id, table.tenant_id),
+}))
+
 // ─── ЭКСПОРТ ТИПОВ ────────────────────────────────────────────────────────────
 // Drizzle умеет автоматически генерировать TypeScript типы из схемы
 // Используй их вместо ручного написания интерфейсов
@@ -281,3 +303,6 @@ export type NewInvoice = typeof invoices.$inferInsert
 
 export type Subscription = typeof subscriptions.$inferSelect
 export type Invite = typeof invites.$inferSelect
+
+export type OrderFile = typeof orderFiles.$inferSelect
+export type NewOrderFile = typeof orderFiles.$inferInsert
