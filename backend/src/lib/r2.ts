@@ -62,7 +62,7 @@ async function uploadLogoLocally(file: File, tenantId: string): Promise<string> 
   const dir = path.join(process.cwd(), 'uploads', 'logos', tenantId)
   await mkdir(dir, { recursive: true })
   await writeFile(path.join(dir, filename), Buffer.from(await file.arrayBuffer()))
-  return `http://localhost:${env.PORT}/uploads/logos/${tenantId}/${filename}`
+  return `${env.BACKEND_URL}/uploads/logos/${tenantId}/${filename}`
 }
 
 export async function uploadLogo(file: File, tenantId: string): Promise<string> {
@@ -87,7 +87,7 @@ async function uploadOrderFileLocally(file: File, key: string): Promise<string> 
   const dir = path.join(process.cwd(), 'uploads', 'order-files', path.dirname(key))
   await mkdir(dir, { recursive: true })
   await writeFile(path.join(dir, path.basename(key)), Buffer.from(await file.arrayBuffer()))
-  return `http://localhost:${env.PORT}/uploads/order-files/${key}`
+  return `${env.BACKEND_URL}/uploads/order-files/${key}`
 }
 
 export async function uploadOrderFile(

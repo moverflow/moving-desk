@@ -7,6 +7,7 @@ const schema = z.object({
   JWT_EXPIRES_IN: z.string().default('7d'),
   RESEND_API_KEY: z.string().min(1),
   FRONTEND_URL: z.string().url(),
+  BACKEND_URL: z.string().url().default('http://localhost:3000'),
   PORT: z.coerce.number().default(3000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   STRIPE_SECRET_KEY: z.string().default(''),
