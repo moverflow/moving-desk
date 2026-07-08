@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import CompanyTab from '@/components/shared/CompanyTab'
 import TeamTab from '@/components/shared/TeamTab'
 import BillingTab from '@/components/shared/BillingTab'
+import CrewsTab from '@/components/shared/CrewsTab'
 import PageContainer from '@/components/shared/PageContainer'
 
 const cardStyle: React.CSSProperties = {
@@ -24,10 +25,12 @@ export default function SettingsPage(): JSX.Element {
               <TabsTrigger value="company">Company</TabsTrigger>
               <TabsTrigger value="team">Team</TabsTrigger>
               <TabsTrigger value="billing">Billing</TabsTrigger>
+              <TabsTrigger value="crews">Crews</TabsTrigger>
             </TabsList>
             <TabsContent value="company"><CompanyTab /></TabsContent>
             <TabsContent value="team"><TeamTab /></TabsContent>
             <TabsContent value="billing"><BillingTab /></TabsContent>
+            <TabsContent value="crews"><CrewsTab /></TabsContent>
           </Tabs>
         </div>
       </div>

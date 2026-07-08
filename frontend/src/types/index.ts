@@ -40,6 +40,8 @@ export interface Crew {
   id: string
   name: string
   truckLabel: string
+  phone?: string
+  active: boolean
 }
 
 export type InvoiceStatus = 'draft' | 'sent' | 'paid'

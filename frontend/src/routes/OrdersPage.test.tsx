@@ -8,10 +8,14 @@ import type { Order } from '@/types'
 vi.mock('@/hooks/useOrders', () => ({
   useOrders: vi.fn(),
   useUpdateOrderStatus: vi.fn(),
+}))
+
+vi.mock('@/hooks/useCrews', () => ({
   useCrews: vi.fn(),
 }))
 
-import { useOrders, useUpdateOrderStatus, useCrews } from '@/hooks/useOrders'
+import { useOrders, useUpdateOrderStatus } from '@/hooks/useOrders'
+import { useCrews } from '@/hooks/useCrews'
 
 const MOCK_ORDERS: Order[] = [
   {

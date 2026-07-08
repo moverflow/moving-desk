@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { Order, Crew, CreateOrderData, HomeSize, OrderStatus } from '@/types'
+import type { Order, CreateOrderData, HomeSize, OrderStatus } from '@/types'
 import { apiFetch } from '@/lib/api'
 
 interface RawOrder {
@@ -26,15 +26,6 @@ interface RawOrder {
   clientPhone: string | null
   crewName: string | null
   crewTruckLabel: string | null
-}
-
-interface RawCrew {
-  id: string
-  tenant_id: string
-  name: string
-  truck_label: string | null
-  active: boolean | null
-  created_at: string | null
 }
 
 function mapOrder(raw: RawOrder): Order {
@@ -110,19 +101,5 @@ export function useUpdateOrderStatus() {
         body: JSON.stringify({ status }),
       }).then((res) => mapOrder(res.order)),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
-  })
-}
-
-export function useCrews() {
-  return useQuery<Crew[]>({
-    queryKey: ['crews'],
-    queryFn: async () => {
-      const data = await apiFetch<{ crews: RawCrew[] }>('/crews')
-      return data.crews.map((c) => ({
-        id: c.id,
-        name: c.name,
-        truckLabel: c.truck_label ?? '',
-      }))
-    },
   })
 }

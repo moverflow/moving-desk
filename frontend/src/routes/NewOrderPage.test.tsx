@@ -6,15 +6,19 @@ import NewOrderPage from './NewOrderPage'
 import type { Client } from '@/types'
 
 vi.mock('@/hooks/useOrders', () => ({
-  useCrews: vi.fn(),
   useCreateOrder: vi.fn(),
+}))
+
+vi.mock('@/hooks/useCrews', () => ({
+  useCrews: vi.fn(),
 }))
 
 vi.mock('@/hooks/useClients', () => ({
   useClientByPhone: vi.fn(),
 }))
 
-import { useCrews, useCreateOrder } from '@/hooks/useOrders'
+import { useCreateOrder } from '@/hooks/useOrders'
+import { useCrews } from '@/hooks/useCrews'
 import { useClientByPhone } from '@/hooks/useClients'
 
 const MOCK_CLIENT: Client = {
