@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { authMiddleware } from '../middleware/auth.js'
-import { deleteOrderFile, uploadOrderFile } from '../lib/r2.js'
+import { deleteOrderFile, resolveOrderFileUrl, uploadOrderFile } from '../lib/r2.js'
 import {
   countOrderFiles,
   createOrderFileRecord,
@@ -147,7 +147,8 @@ ordersRouter.get('/:id/files', authMiddleware, async (c) => {
   if (!order) return c.json({ error: 'Order not found' }, 404)
 
   const files = await listOrderFiles(tenantId, orderId)
-  return c.json({ files })
+  const resolved = files.map((f) => ({ ...f, url: resolveOrderFileUrl(f.key) }))
+  return c.json({ files: resolved })
 })
 
 ordersRouter.post('/:id/files', authMiddleware, async (c) => {
@@ -188,7 +189,7 @@ ordersRouter.post('/:id/files', authMiddleware, async (c) => {
     mimeType: file.type,
     uploadedBy: c.get('userId'),
   })
-  return c.json({ file: created }, 201)
+  return c.json({ file: { ...created, url: resolveOrderFileUrl(created.key) } }, 201)
 })
 
 ordersRouter.delete('/:id/files/:fileId', authMiddleware, async (c) => {
