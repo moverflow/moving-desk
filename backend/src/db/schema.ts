@@ -113,6 +113,7 @@ export const crews = pgTable('crews', {
   tenant_id: uuid('tenant_id').notNull().references(() => tenants.id),
   name: varchar('name', { length: 255 }).notNull(),
   truck_label: varchar('truck_label', { length: 100 }),
+  phone: varchar('phone', { length: 20 }),
   active: boolean('active').default(true),
   created_at: timestamp('created_at').defaultNow(),
 },
