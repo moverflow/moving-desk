@@ -1,13 +1,21 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { env } from './env.js'
+import { logger } from './logger.js'
 
 const EXT_MAP: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
   'image/webp': 'webp',
   'image/gif': 'gif',
+}
+
+const FILE_EXT_MAP: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'application/pdf': 'pdf',
 }
 
 export function isR2Configured(): boolean {
@@ -60,6 +68,48 @@ async function uploadLogoLocally(file: File, tenantId: string): Promise<string> 
 export async function uploadLogo(file: File, tenantId: string): Promise<string> {
   if (isR2Configured()) return uploadLogoToR2(file, tenantId)
   return uploadLogoLocally(file, tenantId)
+}
+
+async function uploadOrderFileToR2(file: File, key: string): Promise<string> {
+  const body = Buffer.from(await file.arrayBuffer())
+  await s3!.send(
+    new PutObjectCommand({
+      Bucket: env.R2_BUCKET_NAME,
+      Key: key,
+      Body: body,
+      ContentType: file.type,
+    }),
+  )
+  return `${env.R2_PUBLIC_URL}/${key}`
+}
+
+async function uploadOrderFileLocally(file: File, key: string): Promise<string> {
+  const dir = path.join(process.cwd(), 'uploads', 'order-files', path.dirname(key))
+  await mkdir(dir, { recursive: true })
+  await writeFile(path.join(dir, path.basename(key)), Buffer.from(await file.arrayBuffer()))
+  return `http://localhost:${env.PORT}/uploads/order-files/${key}`
+}
+
+export async function uploadOrderFile(
+  file: File,
+  tenantId: string,
+  orderId: string,
+): Promise<{ url: string; key: string }> {
+  const ext = FILE_EXT_MAP[file.type] ?? 'bin'
+  const key = `${tenantId}/${orderId}/${crypto.randomUUID()}.${ext}`
+  const url = isR2Configured()
+    ? await uploadOrderFileToR2(file, key)
+    : await uploadOrderFileLocally(file, key)
+  return { url, key }
+}
+
+export async function deleteOrderFile(key: string): Promise<void> {
+  if (!isR2Configured()) return
+  try {
+    await s3!.send(new DeleteObjectCommand({ Bucket: env.R2_BUCKET_NAME, Key: key }))
+  } catch (err) {
+    logger.error({ err, key }, 'Failed to delete order file from R2')
+  }
 }
 
 export const UPLOADS_ROOT = path.join(process.cwd(), 'uploads')
