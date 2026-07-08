@@ -146,6 +146,16 @@ export interface DashboardResponse {
   topCrews: DashboardCrewRow[]
 }
 
+export interface OrderFile {
+  id: string
+  name: string
+  url: string
+  size: number
+  mimeType: string
+  uploadedBy: string
+  createdAt: string
+}
+
 export interface CreateOrderData {
   clientName: string
   phone: string
