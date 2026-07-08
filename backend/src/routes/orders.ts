@@ -1,6 +1,15 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { authMiddleware } from '../middleware/auth.js'
+import { deleteOrderFile, uploadOrderFile } from '../lib/r2.js'
+import {
+  countOrderFiles,
+  createOrderFileRecord,
+  deleteOrderFileRecord,
+  getOrderFileById,
+  listOrderFiles,
+  MAX_FILES_PER_ORDER,
+} from '../services/files.service.js'
 import {
   createOrder,
   findOrCreateClient,
@@ -13,6 +22,8 @@ import {
 import type { AppVariables } from '../types/index.js'
 
 const PACKING_FEE = 12000 // $120 in cents
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024
+const ALLOWED_ORDER_FILE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])
 
 const createOrderSchema = z.object({
   clientPhone: z.string().min(1),
@@ -127,6 +138,73 @@ ordersRouter.delete('/:id', authMiddleware, async (c) => {
   if (!existing) return c.json({ error: 'Order not found' }, 404)
   const updated = await updateOrder(tenantId, orderId, { status: 'cancelled' })
   return c.json({ order: updated })
+})
+
+ordersRouter.get('/:id/files', authMiddleware, async (c) => {
+  const tenantId = c.get('tenantId')
+  const orderId = c.req.param('id')
+  const order = await getOrderById(tenantId, orderId)
+  if (!order) return c.json({ error: 'Order not found' }, 404)
+
+  const files = await listOrderFiles(tenantId, orderId)
+  return c.json({ files })
+})
+
+ordersRouter.post('/:id/files', authMiddleware, async (c) => {
+  const tenantId = c.get('tenantId')
+  const orderId = c.req.param('id')
+  const order = await getOrderById(tenantId, orderId)
+  if (!order) return c.json({ error: 'Order not found' }, 404)
+
+  let formData: FormData
+  try {
+    formData = await c.req.formData()
+  } catch {
+    return c.json({ error: 'Invalid form data' }, 400)
+  }
+
+  const file = formData.get('file')
+  if (!(file instanceof File)) return c.json({ error: 'File required' }, 400)
+  if (!ALLOWED_ORDER_FILE_TYPES.has(file.type)) {
+    return c.json({ error: 'Invalid file type. Allowed: jpeg, png, webp, pdf' }, 400)
+  }
+  if (file.size > MAX_FILE_SIZE_BYTES) {
+    return c.json({ error: 'File too large. Max size: 10MB' }, 400)
+  }
+
+  const existingCount = await countOrderFiles(tenantId, orderId)
+  if (existingCount >= MAX_FILES_PER_ORDER) {
+    return c.json({ error: `Max ${MAX_FILES_PER_ORDER} files per order` }, 409)
+  }
+
+  const { url, key } = await uploadOrderFile(file, tenantId, orderId)
+  const created = await createOrderFileRecord({
+    tenantId,
+    orderId,
+    name: file.name,
+    url,
+    key,
+    size: file.size,
+    mimeType: file.type,
+    uploadedBy: c.get('userId'),
+  })
+  return c.json({ file: created }, 201)
+})
+
+ordersRouter.delete('/:id/files/:fileId', authMiddleware, async (c) => {
+  const tenantId = c.get('tenantId')
+  const orderId = c.req.param('id')
+  const fileId = c.req.param('fileId')
+
+  const order = await getOrderById(tenantId, orderId)
+  if (!order) return c.json({ error: 'Order not found' }, 404)
+
+  const file = await getOrderFileById(tenantId, orderId, fileId)
+  if (!file) return c.json({ error: 'File not found' }, 404)
+
+  await deleteOrderFile(file.key)
+  await deleteOrderFileRecord(tenantId, orderId, fileId)
+  return c.json({ success: true })
 })
 
 export default ordersRouter
