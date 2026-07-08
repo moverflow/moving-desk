@@ -72,3 +72,57 @@ None directly (frontend only). Backend endpoints consumed (mocked):
 - AC6: QuickSetupPage → "Skip setup" link → navigate('/orders')
 - AC7: JoinPage → reads token via useSearchParams, passes to mutation
 - AC8: ProtectedRoute uses useMe query; on success → setAuth; while loading → spinner
+
+---
+
+## sprint-5/06-crew-cards — Analysis (2026-07-08)
+
+### What is being built
+Adds a `phone` column to `crews`, extends the existing crew create/update backend to accept it (plus an `active` toggle — see gap below), and replaces the plain-list crew management currently missing from the frontend entirely with a dedicated "Crews" tab in Settings, rendering crews as cards (name, truck, phone, active/inactive badge, inline edit, add-crew form).
+
+### DB tables touched
+`crews` only — `ALTER TABLE crews ADD COLUMN phone varchar(20)`. New migration, no data backfill needed (nullable column).
+
+### Tenant isolation
+`crews.service.ts` already scopes every query by `tenant_id` (`listCrews`, `updateCrew`, `deactivateCrew` all `eq(crews.tenant_id, tenantId)`); `createCrew` inserts `tenant_id` from the route's `ctx.tenantId`. No new isolation surface — just confirm the extended `updateCrew` (adding phone/active) keeps the same `and(eq(id), eq(tenant_id))` where clause.
+
+### Verified gap vs. task spec — resolved
+The task's "Backend" section only says to add `phone` to PATCH/GET, but the frontend spec explicitly requires an "Active" toggle in the edit form (AC5: "Edit crew updates name, truck, phone, active status"). The existing `DELETE /crews/:id` only deactivates (one-directional, sets `active: false`) — there's no way to reactivate a crew today. Resolution: extend `patchCrewSchema`/`updateCrew()` to also accept an optional `active: boolean`, so the edit form's toggle round-trips through `PATCH` in both directions. Leave `DELETE /crews/:id` untouched (unused by this feature, not asked to remove).
+
+### Files to create/modify (adjusted from task doc — task's list was incomplete, verified against actual code)
+- `backend/src/db/schema.ts` — add `phone` to `crews`
+- `backend/drizzle/000X_*.sql` + meta — new migration (not listed in task doc but required — "Add to schema.ts and run migration")
+- `backend/src/services/crews.service.ts` — `createCrew`/`updateCrew` accept `phone` + `active`
+- `backend/src/routes/crews.ts` — **not in task's file list but must change**: `createCrewSchema`/`patchCrewSchema` need `phone`/`active` fields, otherwise Zod strips them silently
+- `frontend/src/types/index.ts` — extend `Crew` type: `phone?: string`, `active: boolean` (not in task's list, but required for typecheck)
+- `frontend/src/hooks/useCrews.ts` — new file. **Deviation**: `useCrews()` query currently lives in `useOrders.ts` (verified) — moving it here for one-responsibility-per-file, alongside new `useCreateCrew`/`useUpdateCrew`. Requires updating 3 existing importers (`NewOrderPage.tsx`, `NewOrderPage.test.tsx`, `OrdersPage.test.tsx`) to import from the new path instead of `@/hooks/useOrders`.
+- `frontend/src/components/shared/CrewsTab.tsx` — new. **Deviation, justified**: task's file list only names `CrewCard.tsx`, but `SettingsPage.tsx`'s existing tabs (`CompanyTab.tsx`, `TeamTab.tsx`, `BillingTab.tsx`) are each a dedicated component — a bare card grid inlined into `SettingsPage.tsx` would break that established pattern. `CrewsTab.tsx` owns the card grid + inline "+ Add crew" form (following `TeamTab.tsx`'s precedent of an inlined add-form, not a separate slide-over panel, since the task says "inline form **or** slide-over" — inline matches the sibling tab's convention).
+- `frontend/src/components/shared/CrewCard.tsx` — new, single crew card with inline edit-mode toggle (name/truck/phone inputs + active `Switch`, matching `components/ui/switch.tsx` which is installed but currently unused anywhere)
+- `frontend/src/routes/SettingsPage.tsx` — add third `TabsTrigger`/`TabsContent` for "Crews"
+
+### Acceptance criteria (verbatim)
+- AC1: Crews tab visible in Settings
+- AC2: Crews displayed as cards with name, truck, phone, status
+- AC3: Phone field formatted as (949) 555-0100 if set — use existing `formatPhone()` from `frontend/src/lib/utils.ts`, not a new formatter
+- AC4: Active/Inactive badge shown correctly
+- AC5: Edit crew updates name, truck, phone, active status
+- AC6: Add crew creates new crew card
+- AC7: Phone persists after save (DB migration applied)
+- AC8: `npm run typecheck` passes
+
+### Key risks / assumptions
+1. No existing tests for `crews.ts`/`crews.service.ts` at all (verified) — test step should add focused coverage for the new phone/active fields, not full retroactive CRUD coverage of pre-existing behavior.
+2. `formatPhone()` assumes a 10-digit US number; an empty/undefined phone must skip formatting entirely (render nothing), not call `formatPhone('')` which would produce `"() -"`.
+3. No popover/toast primitive in this codebase (confirmed in sprint-5/05 review) — inline error text and native `window.confirm`-style patterns remain the convention if needed here too, though this feature has no destructive delete action exposed in the UI (only add/edit).
+
+---
+
+## sprint-5/06-crew-cards — DONE (2026-07-08) — PR #22
+
+- Branch: feat/sprint-5-crew-cards
+- Tests: 38/38 backend (7 pre-existing Postgres-gated skips, unrelated), 120/120 frontend
+- Review cycles: 0 (approved first pass; 2 non-blocking notes: a restates-the-code comment, phone field has no length constraint unlike clients.ts)
+- Validation: 1 gap found and fixed — `listCrews` hard-filtered `active=true`, which would've made a deactivated crew silently disappear instead of showing the Inactive badge (AC4). Fixed by adding `includeInactive` param: Crews tab passes `true`, New Order's crew-assignment dropdown stays active-only (unchanged behavior). Re-validated, passed.
+- PR: https://github.com/moverflow/moving-desk/pull/22
+
+---
