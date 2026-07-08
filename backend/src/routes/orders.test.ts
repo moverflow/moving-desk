@@ -59,10 +59,12 @@ vi.mock('../services/files.service.js', () => ({
 
 const uploadOrderFileMock = vi.fn()
 const deleteOrderFileMock = vi.fn()
+const resolveOrderFileUrlMock = vi.fn((key: string) => `https://pub.example.com/${key}`)
 
 vi.mock('../lib/r2.js', () => ({
   uploadOrderFile: (...args: unknown[]) => uploadOrderFileMock(...args),
   deleteOrderFile: (...args: unknown[]) => deleteOrderFileMock(...args),
+  resolveOrderFileUrl: (...args: [string]) => resolveOrderFileUrlMock(...args),
 }))
 
 const { default: ordersRouter } = await import('./orders.js')
@@ -91,12 +93,14 @@ beforeEach(() => {
   deleteOrderFileRecordMock.mockReset()
   uploadOrderFileMock.mockReset()
   deleteOrderFileMock.mockReset()
+  resolveOrderFileUrlMock.mockClear()
 })
 
 describe('GET /orders/:id/files', () => {
   it('returns the files array — happy path', async () => {
     getOrderByIdMock.mockResolvedValue(order)
-    const files = [{ id: FILE_ID, name: 'inventory.pdf', url: 'https://pub.example.com/x.pdf' }]
+    const key = `${TENANT_A}/${ORDER_ID}/x.pdf`
+    const files = [{ id: FILE_ID, name: 'inventory.pdf', key, url: 'https://stale.example.com/x.pdf' }]
     listOrderFilesMock.mockResolvedValue(files)
 
     const res = await app.request(`/orders/${ORDER_ID}/files`, {
@@ -104,8 +108,8 @@ describe('GET /orders/:id/files', () => {
     })
 
     expect(res.status).toBe(200)
-    const body = (await res.json()) as { files: typeof files }
-    expect(body.files).toEqual(files)
+    const body = (await res.json()) as { files: Array<{ id: string; name: string; key: string; url: string }> }
+    expect(body.files).toEqual([{ ...files[0], url: `https://pub.example.com/${key}` }])
     expect(listOrderFilesMock).toHaveBeenCalledWith(TENANT_A, ORDER_ID)
   })
 
@@ -137,11 +141,12 @@ describe('POST /orders/:id/files', () => {
   it('uploads a valid jpeg and returns 201 — happy path', async () => {
     getOrderByIdMock.mockResolvedValue(order)
     countOrderFilesMock.mockResolvedValue(0)
+    const key = `${TENANT_A}/${ORDER_ID}/uuid.jpg`
     uploadOrderFileMock.mockResolvedValue({
       url: 'https://pub.example.com/a.jpg',
-      key: `${TENANT_A}/${ORDER_ID}/uuid.jpg`,
+      key,
     })
-    const created = { id: FILE_ID, name: 'photo.jpg', url: 'https://pub.example.com/a.jpg' }
+    const created = { id: FILE_ID, name: 'photo.jpg', key, url: 'https://pub.example.com/a.jpg' }
     createOrderFileRecordMock.mockResolvedValue(created)
 
     const file = new File([new Uint8Array(10)], 'photo.jpg', { type: 'image/jpeg' })
@@ -153,7 +158,7 @@ describe('POST /orders/:id/files', () => {
 
     expect(res.status).toBe(201)
     const body = (await res.json()) as { file: typeof created }
-    expect(body.file).toEqual(created)
+    expect(body.file).toEqual({ ...created, url: `https://pub.example.com/${key}` })
     expect(uploadOrderFileMock).toHaveBeenCalledWith(expect.any(File), TENANT_A, ORDER_ID)
     expect(createOrderFileRecordMock).toHaveBeenCalledWith(
       expect.objectContaining({ tenantId: TENANT_A, orderId: ORDER_ID, name: 'photo.jpg', mimeType: 'image/jpeg' }),

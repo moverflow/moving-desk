@@ -103,6 +103,15 @@ export async function uploadOrderFile(
   return { url, key }
 }
 
+// Derives the current public URL for an order file from its storage key,
+// rather than trusting the URL persisted at upload time — keeps API
+// responses correct even if BACKEND_URL/R2 config changes after upload.
+export function resolveOrderFileUrl(key: string): string {
+  return isR2Configured()
+    ? `${env.R2_PUBLIC_URL}/${key}`
+    : `${env.BACKEND_URL}/uploads/order-files/${key}`
+}
+
 export async function deleteOrderFile(key: string): Promise<void> {
   if (!isR2Configured()) return
   try {
