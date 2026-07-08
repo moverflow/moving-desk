@@ -20,7 +20,8 @@ const patchCrewSchema = z.object({
 const crewsRouter = new Hono<{ Variables: AppVariables }>()
 
 crewsRouter.get('/', authMiddleware, async (c) => {
-  const list = await listCrews(c.get('tenantId'))
+  const includeInactive = c.req.query('includeInactive') === 'true'
+  const list = await listCrews(c.get('tenantId'), includeInactive)
   return c.json({ crews: list })
 })
 

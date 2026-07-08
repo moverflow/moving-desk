@@ -2,7 +2,10 @@ import { and, eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { crews } from '../db/schema.js'
 
-export async function listCrews(tenantId: string) {
+export async function listCrews(tenantId: string, includeInactive = false) {
+  if (includeInactive) {
+    return db.select().from(crews).where(eq(crews.tenant_id, tenantId))
+  }
   return db
     .select()
     .from(crews)

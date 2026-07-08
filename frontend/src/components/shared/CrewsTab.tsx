@@ -7,7 +7,7 @@ import { useCrews, useCreateCrew } from '@/hooks/useCrews'
 import { ApiError } from '@/lib/api'
 
 export default function CrewsTab(): JSX.Element {
-  const { data: crews = [] } = useCrews()
+  const { data: crews = [] } = useCrews(true)
   const { mutate: createCrew, isPending } = useCreateCrew()
   const [isAdding, setIsAdding] = useState(false)
   const [name, setName] = useState('')

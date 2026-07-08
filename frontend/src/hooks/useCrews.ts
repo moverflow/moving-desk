@@ -22,11 +22,13 @@ function mapCrew(raw: RawCrew): Crew {
   }
 }
 
-export function useCrews() {
+export function useCrews(includeInactive = false) {
   return useQuery<Crew[]>({
-    queryKey: ['crews'],
+    queryKey: ['crews', includeInactive],
     queryFn: async () => {
-      const data = await apiFetch<{ crews: RawCrew[] }>('/crews')
+      const data = await apiFetch<{ crews: RawCrew[] }>(
+        includeInactive ? '/crews?includeInactive=true' : '/crews'
+      )
       return data.crews.map(mapCrew)
     },
   })

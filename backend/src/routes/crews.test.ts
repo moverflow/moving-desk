@@ -75,13 +75,24 @@ describe('GET /crews', () => {
     expect(res.status).toBe(200)
     const body = (await res.json()) as { crews: typeof list }
     expect(body.crews).toEqual(list)
-    expect(listCrewsMock).toHaveBeenCalledWith(TENANT_A)
+    expect(listCrewsMock).toHaveBeenCalledWith(TENANT_A, false)
   })
 
   it('rejects a request with no auth cookie with 401', async () => {
     const res = await app.request('/crews')
     expect(res.status).toBe(401)
     expect(listCrewsMock).not.toHaveBeenCalled()
+  })
+
+  it('passes includeInactive=true through when the query param is set', async () => {
+    listCrewsMock.mockResolvedValue([])
+
+    const res = await app.request('/crews?includeInactive=true', {
+      headers: { Cookie: await authCookie() },
+    })
+
+    expect(res.status).toBe(200)
+    expect(listCrewsMock).toHaveBeenCalledWith(TENANT_A, true)
   })
 })
 
