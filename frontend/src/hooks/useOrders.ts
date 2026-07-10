@@ -7,6 +7,7 @@ interface RawOrder {
   tenant_id: string
   client_id: string | null
   crew_id: string | null
+  created_by: string | null
   status: string
   move_date: string
   from_address: string
@@ -52,6 +53,7 @@ function mapOrder(raw: RawOrder): Order {
     totalPrice: raw.total_price,
     notes: raw.notes ?? undefined,
     createdAt: raw.created_at ?? '',
+    isOnline: raw.created_by === null,
   }
 }
 

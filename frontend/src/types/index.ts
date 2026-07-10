@@ -34,6 +34,7 @@ export interface Order {
   totalPrice: number
   notes?: string
   createdAt: string
+  isOnline: boolean
 }
 
 export interface Crew {
@@ -91,6 +92,42 @@ export interface Settings {
   logoUrl: string | null
   timezone: string
   baseRates: Record<string, number>
+  phone: string | null
+  slug: string
+  bookingEnabled: boolean
+  bookingDescription: string | null
+}
+
+export interface PublicBookingTenant {
+  name: string
+  logoUrl: string | null
+  phone: string | null
+  description: string | null
+  slug: string
+  baseRates: Record<HomeSize, number>
+  packingFee: number
+}
+
+export interface BookingFormData {
+  clientName: string
+  clientPhone: string
+  clientEmail?: string
+  fromAddress: string
+  toAddress: string
+  moveDate: string
+  homeSize: HomeSize
+  fromFloor: number
+  toFloor: number
+  fromElevator: boolean
+  toElevator: boolean
+  packing: boolean
+  notes?: string
+}
+
+export interface BookingResult {
+  orderId: string
+  totalPrice: number
+  confirmationMessage: string
 }
 
 export interface Subscription {

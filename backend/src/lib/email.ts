@@ -24,6 +24,30 @@ export function sendInvoiceEmail(params: {
     })
 }
 
+export function sendBookingConfirmation(params: {
+  to: string
+  clientName: string
+  companyName: string
+  companyPhone: string | null
+  moveDate: string
+  fromAddress: string
+  toAddress: string
+  estimatedPrice: number
+}): void {
+  const price = `$${params.estimatedPrice.toLocaleString('en-US')}`
+  const phoneLine = params.companyPhone ? `\n\nQuestions? Call us: ${params.companyPhone}` : ''
+  resend.emails
+    .send({
+      from: 'MovingDesk <hello@movingdesk.app>',
+      to: params.to,
+      subject: `Your move is booked with ${params.companyName}!`,
+      text: `Hi ${params.clientName},\n\nYour move is booked. ${params.companyName} will be in touch to confirm the details.\n\nMove date: ${params.moveDate}\nFrom: ${params.fromAddress}\nTo: ${params.toAddress}\nEstimated price: ${price}${phoneLine}\n\nThank you,\n${params.companyName}`,
+    })
+    .catch((err: unknown) => {
+      logger.error({ err }, 'Failed to send booking confirmation email')
+    })
+}
+
 export function sendInviteEmail(email: string, token: string): void {
   resend.emails
     .send({

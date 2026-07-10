@@ -81,6 +81,7 @@ function buildOrder(overrides: Partial<Order>): Order {
     packing: false,
     totalPrice: 480,
     createdAt: '2026-06-01T10:00:00Z',
+    isOnline: false,
     ...overrides,
   }
 }

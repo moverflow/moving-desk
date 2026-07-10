@@ -8,6 +8,7 @@ import { logger } from './lib/logger.js'
 import { UPLOADS_ROOT } from './lib/r2.js'
 import auth from './routes/auth.js'
 import billing from './routes/billing.js'
+import book from './routes/book.js'
 import clients from './routes/clients.js'
 import dashboard from './routes/dashboard.js'
 import settings from './routes/settings.js'
@@ -28,6 +29,7 @@ app.use(
 
 app.use('*', honoLogger((str) => logger.info(str)))
 
+app.route('/book', book)
 app.route('/auth', auth)
 app.route('/users', users)
 app.route('/orders', orders)

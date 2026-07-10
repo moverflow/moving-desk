@@ -10,13 +10,13 @@ const SAMPLE_ORDERS: Order[] = [
     id: 'o1', tenantId: 't1', clientName: 'Alice', phone: '(555) 000-0001',
     fromAddress: 'A', toAddress: 'B', moveDate: '2026-07-01', homeSize: '2br',
     status: 'new', fromFloor: 1, toFloor: 1, fromElevator: false, toElevator: false,
-    packing: false, totalPrice: 480, createdAt: '2026-06-01T00:00:00Z',
+    packing: false, totalPrice: 480, createdAt: '2026-06-01T00:00:00Z', isOnline: false,
   },
   {
     id: 'o2', tenantId: 't1', clientName: 'Bob', phone: '(555) 000-0002',
     fromAddress: 'C', toAddress: 'D', moveDate: '2026-07-02', homeSize: 'house',
     status: 'confirmed', fromFloor: 1, toFloor: 1, fromElevator: false, toElevator: false,
-    packing: true, totalPrice: 970, createdAt: '2026-06-02T00:00:00Z',
+    packing: true, totalPrice: 970, createdAt: '2026-06-02T00:00:00Z', isOnline: true,
   },
 ]
 
