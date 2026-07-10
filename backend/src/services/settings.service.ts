@@ -11,7 +11,14 @@ const DEFAULT_SETTINGS: TenantSettings = {
 
 export async function getSettings(tenantId: string) {
   const [tenant] = await db
-    .select({ name: tenants.name, logo_url: tenants.logo_url, settings: tenants.settings })
+    .select({
+      name: tenants.name,
+      logo_url: tenants.logo_url,
+      settings: tenants.settings,
+      slug: tenants.slug,
+      booking_enabled: tenants.booking_enabled,
+      booking_description: tenants.booking_description,
+    })
     .from(tenants)
     .where(eq(tenants.id, tenantId))
     .limit(1)
@@ -25,6 +32,9 @@ export async function updateSettings(
     logo_url?: string | null
     timezone?: string
     baseRates?: Partial<TenantSettings['baseRates']>
+    phone?: string | null
+    bookingEnabled?: boolean
+    bookingDescription?: string | null
   }
 ) {
   const [current] = await db
@@ -35,22 +45,36 @@ export async function updateSettings(
 
   const currentSettings = (current?.settings ?? DEFAULT_SETTINGS) as TenantSettings
   const merged: TenantSettings = { ...DEFAULT_SETTINGS, ...currentSettings }
+  const settingsChanged =
+    updates.timezone !== undefined || updates.baseRates !== undefined || updates.phone !== undefined
   if (updates.timezone !== undefined) merged.timezone = updates.timezone
   if (updates.baseRates !== undefined) merged.baseRates = { ...merged.baseRates, ...updates.baseRates }
+  if (updates.phone !== undefined) merged.phone = updates.phone ?? undefined
 
   const set: {
     name?: string
     logo_url?: string | null
     settings?: TenantSettings
+    booking_enabled?: boolean
+    booking_description?: string | null
   } = {}
   if (updates.name !== undefined) set.name = updates.name
   if (updates.logo_url !== undefined) set.logo_url = updates.logo_url
-  if (updates.timezone !== undefined || updates.baseRates !== undefined) set.settings = merged
+  if (settingsChanged) set.settings = merged
+  if (updates.bookingEnabled !== undefined) set.booking_enabled = updates.bookingEnabled
+  if (updates.bookingDescription !== undefined) set.booking_description = updates.bookingDescription
 
   const [updated] = await db
     .update(tenants)
     .set(set)
     .where(eq(tenants.id, tenantId))
-    .returning({ name: tenants.name, logo_url: tenants.logo_url, settings: tenants.settings })
+    .returning({
+      name: tenants.name,
+      logo_url: tenants.logo_url,
+      settings: tenants.settings,
+      slug: tenants.slug,
+      booking_enabled: tenants.booking_enabled,
+      booking_description: tenants.booking_description,
+    })
   return updated ?? null
 }

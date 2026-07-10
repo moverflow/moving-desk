@@ -20,6 +20,7 @@ const orderSelectFields = {
   tenant_id: orders.tenant_id,
   client_id: orders.client_id,
   crew_id: orders.crew_id,
+  created_by: orders.created_by,
   status: orders.status,
   move_date: orders.move_date,
   from_address: orders.from_address,

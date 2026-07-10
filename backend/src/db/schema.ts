@@ -23,6 +23,7 @@ export type TenantSettings = {
   }
   packingFee: number         // доп. стоимость упаковки, default 120
   invoiceFooter?: string     // текст в подвале инвойса (опционально)
+  phone?: string             // публичный телефон компании (для booking page / инвойсов)
 }
 
 // ─── TENANTS ──────────────────────────────────────────────────────────────────
@@ -44,6 +45,10 @@ export const tenants = pgTable('tenants', {
   plan: varchar('plan', { length: 20 })
     .$type<'trial' | 'basic' | 'pro'>()  // только допустимые значения
     .default('trial'),
+
+  // Публичная страница самостоятельного бронирования (/book/:slug)
+  booking_enabled: boolean('booking_enabled').notNull().default(false),
+  booking_description: text('booking_description'),
 
   trial_ends_at: timestamp('trial_ends_at'),
   created_at: timestamp('created_at').defaultNow(),
@@ -131,7 +136,8 @@ export const orders = pgTable('orders', {
   tenant_id: uuid('tenant_id').notNull().references(() => tenants.id),
   client_id: uuid('client_id').references(() => clients.id),
   crew_id: uuid('crew_id').references(() => crews.id),
-  created_by: uuid('created_by').notNull().references(() => users.id),
+  // nullable — заказы с публичной booking-страницы создаются системой (created_by = null)
+  created_by: uuid('created_by').references(() => users.id),
 
   status: varchar('status', { length: 20 })
     .$type<'new' | 'confirmed' | 'in_progress' | 'completed' | 'closed' | 'cancelled'>()

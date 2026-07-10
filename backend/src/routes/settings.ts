@@ -10,6 +10,9 @@ const patchSettingsSchema = z.object({
   logoUrl: z.string().url().nullable().optional(),
   timezone: z.string().optional(),
   baseRates: z.record(z.string(), z.number().nonnegative()).optional(),
+  phone: z.string().max(20).nullable().optional(),
+  bookingEnabled: z.boolean().optional(),
+  bookingDescription: z.string().max(300).nullable().optional(),
 })
 
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
@@ -25,6 +28,10 @@ settingsRouter.get('/', authMiddleware, requireOwner, async (c) => {
     logoUrl: tenant.logo_url,
     timezone: settings.timezone ?? 'America/New_York',
     baseRates: settings.baseRates ?? {},
+    phone: settings.phone ?? null,
+    slug: tenant.slug,
+    bookingEnabled: tenant.booking_enabled,
+    bookingDescription: tenant.booking_description,
   })
 })
 
@@ -44,6 +51,9 @@ settingsRouter.patch('/', authMiddleware, requireOwner, async (c) => {
     logo_url: d.logoUrl,
     timezone: d.timezone,
     baseRates: d.baseRates,
+    phone: d.phone,
+    bookingEnabled: d.bookingEnabled,
+    bookingDescription: d.bookingDescription,
   })
   if (!updated) return c.json({ error: 'Settings not found' }, 404)
 
@@ -53,6 +63,10 @@ settingsRouter.patch('/', authMiddleware, requireOwner, async (c) => {
     logoUrl: updated.logo_url,
     timezone: settings.timezone ?? 'America/New_York',
     baseRates: settings.baseRates ?? {},
+    phone: settings.phone ?? null,
+    slug: updated.slug,
+    bookingEnabled: updated.booking_enabled,
+    bookingDescription: updated.booking_description,
   })
 })
 

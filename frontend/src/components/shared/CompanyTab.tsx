@@ -23,6 +23,7 @@ export default function CompanyTab(): JSX.Element {
   const { mutateAsync: save, isPending: isSaving } = useUpdateSettings()
   const { mutateAsync: uploadLogo, isPending: isUploading } = useUploadLogo()
   const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
   const [timezone, setTimezone] = useState('America/Los_Angeles')
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [logoFile, setLogoFile] = useState<File | null>(null)
@@ -34,6 +35,7 @@ export default function CompanyTab(): JSX.Element {
     if (settings && !initialized.current) {
       initialized.current = true
       setName(settings.companyName)
+      setPhone(settings.phone ?? '')
       setTimezone(settings.timezone)
       setRates({ ...settings.baseRates })
       if (settings.logoUrl) setLogoUrl(settings.logoUrl)
@@ -47,7 +49,7 @@ export default function CompanyTab(): JSX.Element {
       finalLogoUrl = result.url
       setLogoFile(null)
     }
-    await save({ companyName: name, timezone, logoUrl: finalLogoUrl, baseRates: rates })
+    await save({ companyName: name, phone: phone.trim() || null, timezone, logoUrl: finalLogoUrl, baseRates: rates })
   }
 
   const isPending = isSaving || isUploading
@@ -63,6 +65,10 @@ export default function CompanyTab(): JSX.Element {
       <div className="space-y-1.5">
         <Label htmlFor="companyName">Company name</Label>
         <Input id="companyName" value={name} onChange={(e) => setName(e.target.value)} disabled={isReadOnly} />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="companyPhone">Phone</Label>
+        <Input id="companyPhone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(949) 555-0100" disabled={isReadOnly} />
       </div>
       <div className="space-y-1.5">
         <Label>Timezone</Label>

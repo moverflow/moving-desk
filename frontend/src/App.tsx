@@ -13,6 +13,7 @@ import LoginPage from '@/routes/LoginPage'
 import QuickSetupPage from '@/routes/QuickSetupPage'
 import JoinPage from '@/routes/JoinPage'
 import PublicInvoicePage from '@/routes/PublicInvoicePage'
+import BookingPage from '@/routes/BookingPage'
 import SettingsPage from '@/routes/SettingsPage'
 import { useAuthStore } from '@/store/auth.store'
 
@@ -29,6 +30,7 @@ export default function App(): JSX.Element {
       <Route path="/setup" element={<QuickSetupPage />} />
       <Route path="/join" element={<JoinPage />} />
       <Route path="/i/:token" element={<PublicInvoicePage />} />
+      <Route path="/book/:slug" element={<BookingPage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
           <Route path="/" element={<DefaultRedirect />} />

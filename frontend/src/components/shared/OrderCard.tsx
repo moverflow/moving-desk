@@ -27,7 +27,14 @@ export default function OrderCard({ order, onClick }: OrderCardProps): JSX.Eleme
       onClick={onClick}
       className={`w-full text-left bg-white rounded-md border border-l-4 ${STATUS_BORDER[order.status]} p-3 shadow-sm hover:shadow-md transition-shadow`}
     >
-      <p className="font-semibold text-sm text-gray-900 truncate">{order.clientName}</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="font-semibold text-sm text-gray-900 truncate">{order.clientName}</p>
+        {order.isOnline && (
+          <span className="shrink-0 text-[10px] font-medium bg-emerald-50 text-emerald-700 rounded px-1.5 py-0.5">
+            🌐 Online
+          </span>
+        )}
+      </div>
       <p className="text-xs text-gray-500 truncate mt-0.5">
         {order.fromAddress} → {order.toAddress}
       </p>
