@@ -15,10 +15,7 @@ function EmptyState(): JSX.Element {
         Add at least 10 completed orders to unlock AI insights. AI needs real data to find
         meaningful patterns in your business.
       </p>
-      <Link
-        to="/orders"
-        className="text-sm font-medium text-[#1d9e75] hover:underline"
-      >
+      <Link to="/orders" className="text-sm font-medium text-[#1d9e75] hover:underline">
         Go to Orders →
       </Link>
     </div>
@@ -28,38 +25,37 @@ function EmptyState(): JSX.Element {
 export default function AIInsightsTab(): JSX.Element {
   const { data, isLoading, isError } = useAIInsights()
 
+  let inner: JSX.Element
   if (isLoading) {
-    return (
+    inner = (
       <div className="flex flex-col gap-3">
         {[0, 1, 2, 3].map((i) => (
           <InsightCardSkeleton key={i} />
         ))}
       </div>
     )
-  }
-
-  if (isError || !data) {
-    return (
+  } else if (isError || !data) {
+    inner = (
       <p className="py-8 text-center text-sm text-gray-500">
         Couldn&apos;t load AI insights. Please try again later.
       </p>
     )
-  }
-
-  if (data.metrics.totalOrders < MIN_ORDERS) {
-    return <EmptyState />
-  }
-
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-3">
-        <p className="text-sm font-semibold text-gray-900">Auto insights</p>
-        {data.insights.map((insight, i) => (
-          <InsightCard key={`${insight.type}-${i}`} insight={insight} />
-        ))}
+  } else if (data.metrics.totalOrders < MIN_ORDERS) {
+    inner = <EmptyState />
+  } else {
+    inner = (
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-3">
+          <p className="text-sm font-semibold text-gray-900">Auto insights</p>
+          {data.insights.map((insight, i) => (
+            <InsightCard key={`${insight.type}-${i}`} insight={insight} />
+          ))}
+        </div>
+        <div className="border-t border-gray-200" />
+        <AIChat />
       </div>
-      <div className="border-t border-gray-200" />
-      <AIChat />
-    </div>
-  )
+    )
+  }
+
+  return <div className="mx-auto w-full max-w-3xl">{inner}</div>
 }

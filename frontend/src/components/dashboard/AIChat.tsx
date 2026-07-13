@@ -79,7 +79,7 @@ export default function AIChat(): JSX.Element {
 
       <div
         ref={scrollRef}
-        className="flex flex-col gap-3 overflow-y-auto rounded-md border border-gray-200 bg-gray-50/50 p-4"
+        className="flex flex-col gap-3 overflow-y-auto rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
         style={{ maxHeight: 400, minHeight: 160 }}
       >
         {messages.length === 0 && (
