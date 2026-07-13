@@ -185,6 +185,48 @@ export interface DashboardResponse {
   topCrews: DashboardCrewRow[]
 }
 
+export interface AIInsight {
+  type: string
+  emoji: string
+  title: string
+  text: string
+}
+
+export interface AIMetricsWeek {
+  week: string
+  revenue: number
+  orders: number
+}
+
+export interface AICrewStat {
+  name: string
+  ordersCount: number
+  revenue: number
+}
+
+export interface AIMetrics {
+  totalRevenue: number
+  revenueByWeek: AIMetricsWeek[]
+  prevPeriodRevenue: number
+  crewStats: AICrewStat[]
+  totalOrders: number
+  totalClients: number
+  repeatClients: number
+  cancelledOrders: number
+  cancellationRate: number
+}
+
+export interface AIInsightsResponse {
+  insights: AIInsight[]
+  metrics: AIMetrics
+  generatedAt: string
+}
+
+export interface AIChatResponse {
+  reply: string
+  questionsRemaining: number
+}
+
 export interface OrderFile {
   id: string
   name: string
