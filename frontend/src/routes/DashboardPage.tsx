@@ -3,6 +3,8 @@ import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import AIInsightsTab from '@/components/dashboard/AIInsightsTab'
 import { useAuthStore } from '@/store/auth.store'
 import { useDashboard } from '@/hooks/useDashboard'
 import { cn, formatCurrency } from '@/lib/utils'
@@ -187,17 +189,13 @@ function TopCrewsTable({ crews }: { crews: DashboardCrewRow[] }): JSX.Element {
   )
 }
 
-export default function DashboardPage(): JSX.Element {
-  const role = useAuthStore((s) => s.user?.role)
+function MetricsTab(): JSX.Element {
   const [period, setPeriod] = useState<DashboardPeriod>('month')
   const { data, isLoading } = useDashboard(period)
 
-  if (role !== 'owner') return <Navigate to="/orders" replace />
-
   return (
-    <div className="p-4 flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Dashboard</h1>
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-end">
         <PeriodSelector value={period} onChange={setPeriod} />
       </div>
 
@@ -217,6 +215,31 @@ export default function DashboardPage(): JSX.Element {
             </div>
           </>
         )}
+    </div>
+  )
+}
+
+export default function DashboardPage(): JSX.Element {
+  const role = useAuthStore((s) => s.user?.role)
+
+  if (role !== 'owner') return <Navigate to="/orders" replace />
+
+  return (
+    <div className="p-4 flex flex-col gap-4">
+      <h1 className="text-xl font-semibold">Dashboard</h1>
+
+      <Tabs defaultValue="metrics">
+        <TabsList>
+          <TabsTrigger value="metrics">📊 Metrics</TabsTrigger>
+          <TabsTrigger value="ai">✨ AI Insights</TabsTrigger>
+        </TabsList>
+        <TabsContent value="metrics">
+          <MetricsTab />
+        </TabsContent>
+        <TabsContent value="ai">
+          <AIInsightsTab />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
