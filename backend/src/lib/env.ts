@@ -6,6 +6,10 @@ const schema = z.object({
   JWT_SECRET: z.string().min(32),
   JWT_EXPIRES_IN: z.string().default('7d'),
   RESEND_API_KEY: z.string().min(1),
+  // Sender for all outbound mail. Must be an address on a Resend-verified
+  // domain. Defaults to Resend's shared testing sender, which needs no
+  // domain setup but can only deliver to your own Resend account email.
+  EMAIL_FROM: z.string().default('MovingDesk <onboarding@resend.dev>'),
   FRONTEND_URL: z.string().url(),
   BACKEND_URL: z.string().url().default('http://localhost:3000'),
   PORT: z.coerce.number().default(3000),
