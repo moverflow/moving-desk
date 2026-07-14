@@ -48,6 +48,43 @@ export function sendBookingConfirmation(params: {
     })
 }
 
+export function sendContractEmail(params: {
+  to: string
+  clientName: string
+  companyName: string
+  moveDate: string
+  contractUrl: string
+}): void {
+  resend.emails
+    .send({
+      from: 'MovingDesk <hello@movingdesk.app>',
+      to: params.to,
+      subject: `Please sign your moving contract with ${params.companyName}`,
+      text: `Hi ${params.clientName},\n\nYour move on ${params.moveDate} is confirmed. Please review and sign your moving service agreement:\n${params.contractUrl}\n\nIt only takes a minute.\n\nThank you,\n${params.companyName}`,
+    })
+    .catch((err: unknown) => {
+      logger.error({ err }, 'Failed to send contract email')
+    })
+}
+
+export function sendContractSignedNotification(params: {
+  to: string
+  clientName: string
+  moveDate: string
+  orderUrl: string
+}): void {
+  resend.emails
+    .send({
+      from: 'MovingDesk <hello@movingdesk.app>',
+      to: params.to,
+      subject: `✅ ${params.clientName} signed the contract for ${params.moveDate} move`,
+      text: `${params.clientName} has signed the moving contract.\n\nMove date: ${params.moveDate}\n\nView the order in MovingDesk:\n${params.orderUrl}`,
+    })
+    .catch((err: unknown) => {
+      logger.error({ err }, 'Failed to send contract signed notification')
+    })
+}
+
 export function sendInviteEmail(email: string, token: string): void {
   resend.emails
     .send({

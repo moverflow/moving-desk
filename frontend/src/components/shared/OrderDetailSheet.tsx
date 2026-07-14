@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { formatDate } from '@/lib/utils'
 import { useUpdateOrderStatus } from '@/hooks/useOrders'
 import OrderFiles from '@/components/shared/OrderFiles'
+import ContractSection from '@/components/shared/ContractSection'
 
 const STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
   { value: 'new', label: 'New' },
@@ -58,6 +59,7 @@ export default function OrderDetailSheet({ order, onClose }: OrderDetailSheetPro
         <Button className="mt-6 w-full" onClick={handleSave} disabled={isPending}>
           {isPending ? 'Saving...' : 'Save'}
         </Button>
+        <ContractSection order={order} />
         <OrderFiles orderId={order.id} />
       </SheetContent>
     </Sheet>

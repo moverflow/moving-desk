@@ -57,6 +57,11 @@ vi.mock('../services/files.service.js', () => ({
   deleteOrderFileRecord: (...args: unknown[]) => deleteOrderFileRecordMock(...args),
 }))
 
+const sendContractForOrderMock = vi.fn()
+vi.mock('../services/contract.service.js', () => ({
+  sendContractForOrder: (...args: unknown[]) => sendContractForOrderMock(...args),
+}))
+
 const uploadOrderFileMock = vi.fn()
 const deleteOrderFileMock = vi.fn()
 const resolveOrderFileUrlMock = vi.fn((key: string) => `https://pub.example.com/${key}`)
@@ -94,6 +99,54 @@ beforeEach(() => {
   uploadOrderFileMock.mockReset()
   deleteOrderFileMock.mockReset()
   resolveOrderFileUrlMock.mockClear()
+  sendContractForOrderMock.mockReset()
+})
+
+describe('POST /orders/:id/send-contract', () => {
+  it('AC16 — sends the contract for a confirmed order', async () => {
+    getOrderByIdMock.mockResolvedValue({ ...order, status: 'confirmed' })
+    sendContractForOrderMock.mockResolvedValue({ found: true, token: 'tok', emailSent: true })
+
+    const res = await app.request(`/orders/${ORDER_ID}/send-contract`, {
+      method: 'POST',
+      headers: { Cookie: await authCookie() },
+    })
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ success: true, emailSent: true })
+    expect(sendContractForOrderMock).toHaveBeenCalledWith(TENANT_A, ORDER_ID)
+  })
+
+  it('returns 409 for an order still in "new" status', async () => {
+    getOrderByIdMock.mockResolvedValue({ ...order, status: 'new' })
+
+    const res = await app.request(`/orders/${ORDER_ID}/send-contract`, {
+      method: 'POST',
+      headers: { Cookie: await authCookie() },
+    })
+
+    expect(res.status).toBe(409)
+    expect(sendContractForOrderMock).not.toHaveBeenCalled()
+  })
+
+  it('returns 404 when the order belongs to another tenant (tenant isolation)', async () => {
+    getOrderByIdMock.mockResolvedValue(null)
+
+    const res = await app.request(`/orders/${ORDER_ID}/send-contract`, {
+      method: 'POST',
+      headers: { Cookie: await authCookie(TENANT_B) },
+    })
+
+    expect(res.status).toBe(404)
+    expect(getOrderByIdMock).toHaveBeenCalledWith(TENANT_B, ORDER_ID)
+    expect(sendContractForOrderMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects a request with no auth cookie with 401 (AC18 — this route IS protected)', async () => {
+    const res = await app.request(`/orders/${ORDER_ID}/send-contract`, { method: 'POST' })
+    expect(res.status).toBe(401)
+    expect(getOrderByIdMock).not.toHaveBeenCalled()
+  })
 })
 
 describe('GET /orders/:id/files', () => {

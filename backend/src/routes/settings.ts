@@ -13,6 +13,7 @@ const patchSettingsSchema = z.object({
   phone: z.string().max(20).nullable().optional(),
   bookingEnabled: z.boolean().optional(),
   bookingDescription: z.string().max(300).nullable().optional(),
+  contractTerms: z.string().max(2000).nullable().optional(),
 })
 
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
@@ -32,6 +33,7 @@ settingsRouter.get('/', authMiddleware, requireOwner, async (c) => {
     slug: tenant.slug,
     bookingEnabled: tenant.booking_enabled,
     bookingDescription: tenant.booking_description,
+    contractTerms: settings.contractTerms ?? null,
   })
 })
 
@@ -54,6 +56,7 @@ settingsRouter.patch('/', authMiddleware, requireOwner, async (c) => {
     phone: d.phone,
     bookingEnabled: d.bookingEnabled,
     bookingDescription: d.bookingDescription,
+    contractTerms: d.contractTerms,
   })
   if (!updated) return c.json({ error: 'Settings not found' }, 404)
 
@@ -67,6 +70,7 @@ settingsRouter.patch('/', authMiddleware, requireOwner, async (c) => {
     slug: updated.slug,
     bookingEnabled: updated.booking_enabled,
     bookingDescription: updated.booking_description,
+    contractTerms: settings.contractTerms ?? null,
   })
 })
 

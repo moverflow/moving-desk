@@ -103,6 +103,32 @@ export async function uploadOrderFile(
   return { url, key }
 }
 
+// Uploads raw bytes under an arbitrary key — used for server-generated
+// artifacts (signature PNGs, signed-contract PDFs) that don't arrive as
+// a multipart File. Mirrors the order-file storage layout so the same
+// resolveOrderFileUrl() logic keeps the public URL correct over time.
+export async function uploadBinary(
+  key: string,
+  body: Buffer,
+  contentType: string,
+): Promise<{ url: string; key: string }> {
+  if (isR2Configured()) {
+    await s3!.send(
+      new PutObjectCommand({
+        Bucket: env.R2_BUCKET_NAME,
+        Key: key,
+        Body: body,
+        ContentType: contentType,
+      }),
+    )
+    return { url: `${env.R2_PUBLIC_URL}/${key}`, key }
+  }
+  const dir = path.join(process.cwd(), 'uploads', 'order-files', path.dirname(key))
+  await mkdir(dir, { recursive: true })
+  await writeFile(path.join(dir, path.basename(key)), body)
+  return { url: `${env.BACKEND_URL}/uploads/order-files/${key}`, key }
+}
+
 // Derives the current public URL for an order file from its storage key,
 // rather than trusting the URL persisted at upload time — keeps API
 // responses correct even if BACKEND_URL/R2 config changes after upload.

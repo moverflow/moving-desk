@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { authMiddleware } from '../middleware/auth.js'
+import { sendContractForOrder } from '../services/contract.service.js'
 import { deleteOrderFile, resolveOrderFileUrl, uploadOrderFile } from '../lib/r2.js'
 import {
   countOrderFiles,
@@ -128,7 +129,26 @@ ordersRouter.patch('/:id', authMiddleware, async (c) => {
     status: d.status, crewId: d.crewId, notes: d.notes,
     moveDate: d.moveDate, fromAddress: d.fromAddress, toAddress: d.toAddress,
   })
+
+  if (d.status === 'confirmed') {
+    await sendContractForOrder(tenantId, orderId)
+  }
+
   return c.json({ order: updated })
+})
+
+ordersRouter.post('/:id/send-contract', authMiddleware, async (c) => {
+  const tenantId = c.get('tenantId')
+  const orderId = c.req.param('id')
+  const order = await getOrderById(tenantId, orderId)
+  if (!order) return c.json({ error: 'Order not found' }, 404)
+  if (order.status === 'new') {
+    return c.json({ error: 'Confirm the order before sending a contract' }, 409)
+  }
+
+  const result = await sendContractForOrder(tenantId, orderId)
+  if (!result.found) return c.json({ error: 'Order not found' }, 404)
+  return c.json({ success: true, emailSent: result.emailSent })
 })
 
 ordersRouter.delete('/:id', authMiddleware, async (c) => {

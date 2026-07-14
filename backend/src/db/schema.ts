@@ -24,6 +24,7 @@ export type TenantSettings = {
   packingFee: number         // доп. стоимость упаковки, default 120
   invoiceFooter?: string     // текст в подвале инвойса (опционально)
   phone?: string             // публичный телефон компании (для booking page / инвойсов)
+  contractTerms?: string     // кастомные условия договора, max 2000 символов (для e-signature)
 }
 
 // ─── TENANTS ──────────────────────────────────────────────────────────────────
@@ -165,6 +166,21 @@ export const orders = pgTable('orders', {
   // При отображении: (total_price / 100).toFixed(2) → "480.00"
   base_price: integer('base_price').notNull().default(0),
   total_price: integer('total_price').notNull().default(0),
+
+  // ─── Digital contract / e-signature (Sprint 6) ──────────────────────────────
+  // none  — договор ещё не создан
+  // sent  — сгенерирован токен, ссылка отправлена клиенту, ждём подписи
+  // signed — клиент подписал
+  contract_status: varchar('contract_status', { length: 20 })
+    .$type<'none' | 'sent' | 'signed'>()
+    .notNull()
+    .default('none'),
+  // Публичный токен для страницы подписания /contract/:token — UUID, не угадывается
+  contract_token: uuid('contract_token').unique(),
+  contract_signed_at: timestamp('contract_signed_at'),
+  contract_signed_name: varchar('contract_signed_name', { length: 255 }),
+  // URL картинки подписи в R2
+  contract_signature_url: text('contract_signature_url'),
 
   created_at: timestamp('created_at').defaultNow(),
   updated_at: timestamp('updated_at').defaultNow(),
