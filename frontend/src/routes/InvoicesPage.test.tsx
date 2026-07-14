@@ -87,6 +87,7 @@ const MOCK_ELIGIBLE_ORDER: Order = {
   totalPrice: 480,
   createdAt: '2026-06-01T10:00:00Z',
   isOnline: false,
+  contractStatus: 'none',
 }
 
 function renderInvoices() {

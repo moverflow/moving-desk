@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -28,6 +29,7 @@ export default function CompanyTab(): JSX.Element {
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [rates, setRates] = useState<Record<string, number>>({ studio: 280, '1br': 380, '2br': 480, '3br': 620, house: 850 })
+  const [contractTerms, setContractTerms] = useState('')
   const initialized = useRef(false)
   const isReadOnly = sub?.status !== 'trialing' && sub?.status !== 'active'
 
@@ -38,6 +40,7 @@ export default function CompanyTab(): JSX.Element {
       setPhone(settings.phone ?? '')
       setTimezone(settings.timezone)
       setRates({ ...settings.baseRates })
+      setContractTerms(settings.contractTerms ?? '')
       if (settings.logoUrl) setLogoUrl(settings.logoUrl)
     }
   }, [settings])
@@ -49,7 +52,7 @@ export default function CompanyTab(): JSX.Element {
       finalLogoUrl = result.url
       setLogoFile(null)
     }
-    await save({ companyName: name, phone: phone.trim() || null, timezone, logoUrl: finalLogoUrl, baseRates: rates })
+    await save({ companyName: name, phone: phone.trim() || null, timezone, logoUrl: finalLogoUrl, baseRates: rates, contractTerms: contractTerms.trim() || null })
   }
 
   const isPending = isSaving || isUploading
@@ -85,6 +88,21 @@ export default function CompanyTab(): JSX.Element {
         </Select>
       </div>
       <BaseRatesFields rates={rates} onChange={(k, v) => setRates((p) => ({ ...p, [k]: v }))} disabled={isReadOnly} />
+      <div className="space-y-1.5">
+        <Label htmlFor="contractTerms">Contract terms (optional)</Label>
+        <Textarea
+          id="contractTerms"
+          value={contractTerms}
+          onChange={(e) => setContractTerms(e.target.value.slice(0, 2000))}
+          placeholder="Enter your custom terms and conditions that will appear in every contract..."
+          rows={4}
+          maxLength={2000}
+          disabled={isReadOnly}
+        />
+        <p className="text-xs text-gray-500">
+          Max 2000 characters. Leave empty to use standard terms only.
+        </p>
+      </div>
       <Button onClick={handleSave} disabled={isPending || isReadOnly}>
         {isPending ? 'Saving...' : 'Save changes'}
       </Button>

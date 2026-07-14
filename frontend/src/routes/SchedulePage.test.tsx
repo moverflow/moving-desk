@@ -82,6 +82,7 @@ function buildOrder(overrides: Partial<Order>): Order {
     totalPrice: 480,
     createdAt: '2026-06-01T10:00:00Z',
     isOnline: false,
+    contractStatus: 'none',
     ...overrides,
   }
 }

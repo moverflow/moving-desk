@@ -35,6 +35,7 @@ export async function updateSettings(
     phone?: string | null
     bookingEnabled?: boolean
     bookingDescription?: string | null
+    contractTerms?: string | null
   }
 ) {
   const [current] = await db
@@ -46,10 +47,16 @@ export async function updateSettings(
   const currentSettings = (current?.settings ?? DEFAULT_SETTINGS) as TenantSettings
   const merged: TenantSettings = { ...DEFAULT_SETTINGS, ...currentSettings }
   const settingsChanged =
-    updates.timezone !== undefined || updates.baseRates !== undefined || updates.phone !== undefined
+    updates.timezone !== undefined ||
+    updates.baseRates !== undefined ||
+    updates.phone !== undefined ||
+    updates.contractTerms !== undefined
   if (updates.timezone !== undefined) merged.timezone = updates.timezone
   if (updates.baseRates !== undefined) merged.baseRates = { ...merged.baseRates, ...updates.baseRates }
   if (updates.phone !== undefined) merged.phone = updates.phone ?? undefined
+  if (updates.contractTerms !== undefined) {
+    merged.contractTerms = updates.contractTerms?.trim() || undefined
+  }
 
   const set: {
     name?: string

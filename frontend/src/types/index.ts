@@ -35,7 +35,12 @@ export interface Order {
   notes?: string
   createdAt: string
   isOnline: boolean
+  contractStatus: ContractStatus
+  contractSignedName?: string
+  contractSignedAt?: string
 }
+
+export type ContractStatus = 'none' | 'sent' | 'signed'
 
 export interface Crew {
   id: string
@@ -96,6 +101,33 @@ export interface Settings {
   slug: string
   bookingEnabled: boolean
   bookingDescription: string | null
+  contractTerms: string | null
+}
+
+export interface PublicContract {
+  order: {
+    moveDate: string
+    fromAddress: string
+    toAddress: string
+    homeSize: string
+    packing: boolean
+    totalPrice: number
+    fromFloor: number
+    toFloor: number
+    fromElevator: boolean
+    toElevator: boolean
+  }
+  client: { name: string; phone: string }
+  company: {
+    name: string
+    logoUrl: string | null
+    phone: string | null
+    contractTerms: string | null
+  }
+  contractStatus: 'sent' | 'signed'
+  alreadySigned: boolean
+  signedName: string | null
+  signedAt: string | null
 }
 
 export interface PublicBookingTenant {

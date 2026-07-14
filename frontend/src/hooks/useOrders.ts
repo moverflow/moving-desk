@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { Order, CreateOrderData, HomeSize, OrderStatus } from '@/types'
+import type { ContractStatus, Order, CreateOrderData, HomeSize, OrderStatus } from '@/types'
 import { apiFetch } from '@/lib/api'
 
 interface RawOrder {
@@ -21,6 +21,9 @@ interface RawOrder {
   notes: string | null
   base_price: number
   total_price: number
+  contract_status: string | null
+  contract_signed_at: string | null
+  contract_signed_name: string | null
   created_at: string | null
   updated_at: string | null
   clientName: string | null
@@ -54,6 +57,9 @@ function mapOrder(raw: RawOrder): Order {
     notes: raw.notes ?? undefined,
     createdAt: raw.created_at ?? '',
     isOnline: raw.created_by === null,
+    contractStatus: (raw.contract_status ?? 'none') as ContractStatus,
+    contractSignedName: raw.contract_signed_name ?? undefined,
+    contractSignedAt: raw.contract_signed_at ?? undefined,
   }
 }
 
@@ -102,6 +108,17 @@ export function useUpdateOrderStatus() {
         method: 'PATCH',
         body: JSON.stringify({ status }),
       }).then((res) => mapOrder(res.order)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
+  })
+}
+
+export function useSendContract() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<{ success: boolean; emailSent: boolean }>(`/orders/${id}/send-contract`, {
+        method: 'POST',
+      }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
   })
 }
