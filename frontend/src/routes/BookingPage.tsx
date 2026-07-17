@@ -71,7 +71,6 @@ export default function BookingPage(): JSX.Element {
               moveDate={completed.data.moveDate}
               fromAddress={completed.data.fromAddress}
               toAddress={completed.data.toAddress}
-              totalPrice={completed.result.totalPrice}
             />
           ) : (
             <BookingForm

@@ -321,6 +321,50 @@ export const orderFiles = pgTable('order_files', {
   orderIdIdx: index('order_files_order_id_idx').on(table.order_id, table.tenant_id),
 }))
 
+// ─── LEADS ────────────────────────────────────────────────────────────────────
+// Потенциальные клиенты до превращения в заказ. Воронка продаж:
+// new → contacted → quoted → booked (конвертирован в order) | lost
+export const leads = pgTable('leads', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenant_id: uuid('tenant_id').notNull().references(() => tenants.id),
+
+  name: varchar('name', { length: 255 }).notNull(),
+  phone: varchar('phone', { length: 20 }),
+  email: varchar('email', { length: 255 }),
+
+  // Детали переезда — необязательны на стадии лида
+  from_address: text('from_address'),
+  to_address: text('to_address'),
+  move_date: date('move_date'),
+  home_size: varchar('home_size', { length: 20 }),
+  notes: text('notes'),
+
+  status: varchar('status', { length: 20 })
+    .$type<'new' | 'contacted' | 'quoted' | 'booked' | 'lost'>()
+    .notNull()
+    .default('new'),
+
+  // Откуда пришёл лид — для аналитики источников
+  source: varchar('source', { length: 50 })
+    .$type<'manual' | 'booking_page' | 'zapier' | 'phone'>()
+    .notNull()
+    .default('manual'),
+
+  // Guard против повторной отправки напоминания владельцу о незакрытом лиде.
+  reminder_sent: boolean('reminder_sent').default(false),
+
+  // Заполняется при конвертации лида в заказ.
+  converted_order_id: uuid('converted_order_id').references(() => orders.id),
+
+  created_by: uuid('created_by').references(() => users.id),
+  created_at: timestamp('created_at').defaultNow(),
+  updated_at: timestamp('updated_at').defaultNow(),
+},
+(table) => ({
+  // Список лидов по статусу: WHERE tenant_id = ? AND status = ?
+  tenantStatusIdx: index('leads_tenant_status_idx').on(table.tenant_id, table.status),
+}))
+
 // ─── ЭКСПОРТ ТИПОВ ────────────────────────────────────────────────────────────
 // Drizzle умеет автоматически генерировать TypeScript типы из схемы
 // Используй их вместо ручного написания интерфейсов
@@ -348,3 +392,6 @@ export type Invite = typeof invites.$inferSelect
 
 export type OrderFile = typeof orderFiles.$inferSelect
 export type NewOrderFile = typeof orderFiles.$inferInsert
+
+export type Lead = typeof leads.$inferSelect
+export type NewLead = typeof leads.$inferInsert

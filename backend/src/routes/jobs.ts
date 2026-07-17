@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { env } from '../lib/env.js'
 import { logger } from '../lib/logger.js'
-import { sendDailyReminders } from '../jobs/reminder.js'
+import { sendDailyReminders, sendUncontactedLeadReminders } from '../jobs/reminder.js'
 
 const jobsRouter = new Hono()
 
@@ -14,6 +14,9 @@ jobsRouter.post('/reminders', (c) => {
   }
 
   sendDailyReminders().catch((err: unknown) => logger.error({ err }, 'Reminder job failed'))
+  sendUncontactedLeadReminders().catch((err: unknown) =>
+    logger.error({ err }, 'Lead reminder job failed'),
+  )
 
   return c.json({ message: 'Reminder job started' })
 })

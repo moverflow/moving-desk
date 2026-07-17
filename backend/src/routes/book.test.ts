@@ -23,16 +23,14 @@ vi.mock('../db/index.js', () => ({
 
 const getPublicTenantMock = vi.fn()
 const getAvailabilityMock = vi.fn()
-const createBookingMock = vi.fn()
 vi.mock('../services/booking.service.js', () => ({
   getPublicTenant: (...a: unknown[]) => getPublicTenantMock(...a),
   getAvailability: (...a: unknown[]) => getAvailabilityMock(...a),
-  createBooking: (...a: unknown[]) => createBookingMock(...a),
 }))
 
-const sendBookingConfirmationMock = vi.fn()
-vi.mock('../lib/email.js', () => ({
-  sendBookingConfirmation: (...a: unknown[]) => sendBookingConfirmationMock(...a),
+const createLeadMock = vi.fn()
+vi.mock('../services/leads.service.js', () => ({
+  createLead: (...a: unknown[]) => createLeadMock(...a),
 }))
 
 const { default: bookRouter } = await import('./book.js')
@@ -62,8 +60,7 @@ const validBooking = {
 beforeEach(() => {
   getPublicTenantMock.mockReset()
   getAvailabilityMock.mockReset()
-  createBookingMock.mockReset()
-  sendBookingConfirmationMock.mockReset()
+  createLeadMock.mockReset()
 })
 
 describe('GET /book/:slug', () => {
@@ -117,13 +114,9 @@ describe('GET /book/:slug/availability', () => {
 })
 
 describe('POST /book/:slug', () => {
-  it('creates an order and sends a confirmation email — happy path', async () => {
+  it('AC9/AC10 — captures a lead and returns a "request received" message', async () => {
     getPublicTenantMock.mockResolvedValue(TENANT)
-    createBookingMock.mockResolvedValue({
-      orderId: 'order-123',
-      totalPrice: 480,
-      clientAlreadyBookedDate: false,
-    })
+    createLeadMock.mockResolvedValue({ id: 'lead-123' })
 
     const res = await app.request('/book/best-movers-llc', {
       method: 'POST',
@@ -132,15 +125,24 @@ describe('POST /book/:slug', () => {
     })
 
     expect(res.status).toBe(201)
-    const body = (await res.json()) as { orderId: string; confirmationMessage: string }
-    expect(body.orderId).toBe('order-123')
+    const body = (await res.json()) as { success: boolean; leadId: string; confirmationMessage: string }
+    expect(body.success).toBe(true)
+    expect(body.leadId).toBe('lead-123')
     expect(body.confirmationMessage).toContain('Best Movers LLC')
-    expect(sendBookingConfirmationMock).toHaveBeenCalledOnce()
+    expect(body.confirmationMessage).toContain('Jane Client')
+
+    // Lead is created for this tenant with the booking_page source.
+    expect(createLeadMock).toHaveBeenCalledTimes(1)
+    const [tenantId, createdBy, input] = createLeadMock.mock.calls[0] as [string, unknown, Record<string, unknown>]
+    expect(tenantId).toBe(TENANT.id)
+    expect(createdBy).toBeNull()
+    expect(input.source).toBe('booking_page')
+    expect(input.name).toBe('Jane Client')
   })
 
-  it('skips email when no clientEmail provided', async () => {
+  it('captures a lead even when no clientEmail is provided', async () => {
     getPublicTenantMock.mockResolvedValue(TENANT)
-    createBookingMock.mockResolvedValue({ orderId: 'o1', totalPrice: 480, clientAlreadyBookedDate: false })
+    createLeadMock.mockResolvedValue({ id: 'lead-1' })
     const { clientEmail, ...noEmail } = validBooking
     void clientEmail
 
@@ -151,7 +153,7 @@ describe('POST /book/:slug', () => {
     })
 
     expect(res.status).toBe(201)
-    expect(sendBookingConfirmationMock).not.toHaveBeenCalled()
+    expect(createLeadMock).toHaveBeenCalledTimes(1)
   })
 
   it('returns 400 on validation failure (short name)', async () => {
@@ -162,32 +164,7 @@ describe('POST /book/:slug', () => {
       body: JSON.stringify({ ...validBooking, clientName: 'J' }),
     })
     expect(res.status).toBe(400)
-    expect(createBookingMock).not.toHaveBeenCalled()
-  })
-
-  it('returns 409 when the date is no longer available (race condition)', async () => {
-    getPublicTenantMock.mockResolvedValue(TENANT)
-    createBookingMock.mockResolvedValue(null)
-    const res = await app.request('/book/best-movers-llc', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(validBooking),
-    })
-    expect(res.status).toBe(409)
-    const body = (await res.json()) as { error: string }
-    expect(body.error).toContain('no longer available')
-  })
-
-  it('returns 409 when client already booked that date', async () => {
-    getPublicTenantMock.mockResolvedValue(TENANT)
-    createBookingMock.mockResolvedValue({ orderId: 'dup', totalPrice: 0, clientAlreadyBookedDate: true })
-    const res = await app.request('/book/best-movers-llc', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(validBooking),
-    })
-    expect(res.status).toBe(409)
-    expect(sendBookingConfirmationMock).not.toHaveBeenCalled()
+    expect(createLeadMock).not.toHaveBeenCalled()
   })
 
   it('returns 404 when tenant not found', async () => {
@@ -198,6 +175,6 @@ describe('POST /book/:slug', () => {
       body: JSON.stringify(validBooking),
     })
     expect(res.status).toBe(404)
-    expect(createBookingMock).not.toHaveBeenCalled()
+    expect(createLeadMock).not.toHaveBeenCalled()
   })
 })

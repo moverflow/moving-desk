@@ -12,6 +12,8 @@ const schema = z.object({
   EMAIL_FROM: z.string().default('MovingDesk <onboarding@resend.dev>'),
   // Shared secret the cron service sends as x-cron-secret to trigger jobs.
   CRON_SECRET: z.string().min(16),
+  // Shared secret guarding the public Zapier lead webhook (?secret=...).
+  WEBHOOK_SECRET: z.string().min(16).optional(),
   FRONTEND_URL: z.string().url(),
   BACKEND_URL: z.string().url().default('http://localhost:3000'),
   PORT: z.coerce.number().default(3000),

@@ -10,6 +10,10 @@ export type SubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'cancelled
 
 export type HomeSize = 'studio' | '1br' | '2br' | '3br' | 'house'
 
+export type LeadStatus = 'new' | 'contacted' | 'quoted' | 'booked' | 'lost'
+
+export type LeadSource = 'manual' | 'booking_page' | 'zapier' | 'phone'
+
 export type { TenantSettings } from '../db/schema.js'
 
 export type AppVariables = {

@@ -1,11 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { sendBookingConfirmation } from '../lib/email.js'
-import {
-  createBooking,
-  getAvailability,
-  getPublicTenant,
-} from '../services/booking.service.js'
+import { getAvailability, getPublicTenant } from '../services/booking.service.js'
+import { createLead } from '../services/leads.service.js'
 
 const monthSchema = z.string().regex(/^\d{4}-\d{2}$/)
 
@@ -69,39 +65,26 @@ bookRouter.post('/:slug', async (c) => {
     return c.json({ error: 'Validation failed', details: result.error.issues }, 400)
   }
 
-  const booking = await createBooking(tenant, result.data)
-  if (!booking) {
-    return c.json({ error: 'This date is no longer available, please choose another' }, 409)
-  }
-  if (booking.clientAlreadyBookedDate) {
-    return c.json({ error: 'You already have a booking for this date. We will call you to confirm.' }, 409)
-  }
-
-  if (result.data.clientEmail) {
-    const moveDate = new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      timeZone: 'UTC',
-    }).format(new Date(`${result.data.moveDate}T00:00:00Z`))
-
-    sendBookingConfirmation({
-      to: result.data.clientEmail,
-      clientName: result.data.clientName,
-      companyName: tenant.name,
-      companyPhone: tenant.phone,
-      moveDate,
-      fromAddress: result.data.fromAddress,
-      toAddress: result.data.toAddress,
-      estimatedPrice: booking.totalPrice,
-    })
-  }
+  // Lead capture: booking-page submissions land in the dispatcher's pipeline as
+  // a lead (not an auto-confirmed order). The dispatcher reviews and converts.
+  const d = result.data
+  const lead = await createLead(tenant.id, null, {
+    name: d.clientName,
+    phone: d.clientPhone,
+    email: d.clientEmail,
+    fromAddress: d.fromAddress,
+    toAddress: d.toAddress,
+    moveDate: d.moveDate,
+    homeSize: d.homeSize,
+    notes: d.notes,
+    source: 'booking_page',
+  })
 
   return c.json(
     {
-      orderId: booking.orderId,
-      totalPrice: booking.totalPrice,
-      confirmationMessage: `${tenant.name} will be in touch to confirm your move.`,
+      success: true,
+      leadId: lead.id,
+      confirmationMessage: `Thank you, ${d.clientName}. ${tenant.name} will be in touch within 1 business day.`,
     },
     201
   )
