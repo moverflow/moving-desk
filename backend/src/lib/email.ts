@@ -108,6 +108,48 @@ export function sendPaymentConfirmationEmail(params: {
     })
 }
 
+// Awaited (not fire-and-forget) so the daily reminder job can mark an order as
+// reminded only after a successful send and continue past a single failure.
+export async function sendMoveReminderEmail(params: {
+  to: string
+  clientName: string
+  companyName: string
+  companyPhone: string | null
+  moveDate: string
+  fromAddress: string
+  toAddress: string
+}): Promise<void> {
+  const phoneLine = params.companyPhone
+    ? `\n\nIf you need to make any changes, call us: ${params.companyPhone}`
+    : ''
+  await resend.emails.send({
+    from: FROM,
+    to: params.to,
+    subject: 'Reminder: Your move is tomorrow!',
+    text: `Hi ${params.clientName},\n\nJust a reminder that your move is scheduled for tomorrow, ${params.moveDate}.\n\nMove details:\nFrom: ${params.fromAddress}\nTo:   ${params.toAddress}\n\nPlease make sure everything is packed and ready.${phoneLine}\n\nSee you tomorrow!\n${params.companyName}`,
+  })
+}
+
+export async function sendMoveCompletedEmail(params: {
+  to: string
+  clientName: string
+  companyName: string
+  companyPhone: string | null
+  moveDate: string
+  invoiceUrl: string | null
+}): Promise<void> {
+  const invoiceBlock = params.invoiceUrl
+    ? `\n\nYour invoice is ready for payment:\n${params.invoiceUrl}`
+    : ''
+  const phoneLine = params.companyPhone ? `\n\nQuestions? Call us: ${params.companyPhone}` : ''
+  await resend.emails.send({
+    from: FROM,
+    to: params.to,
+    subject: 'Your move is complete — thank you!',
+    text: `Hi ${params.clientName},\n\nYour move on ${params.moveDate} has been completed successfully.\nThank you for choosing ${params.companyName}!${invoiceBlock}\n\nWe'd love to hear about your experience — feel free to leave us a review. It means a lot to our small business.${phoneLine}\n\nBest regards,\n${params.companyName}`,
+  })
+}
+
 export function sendInviteEmail(email: string, token: string): void {
   resend.emails
     .send({

@@ -15,6 +15,7 @@ import dashboard from './routes/dashboard.js'
 import settings from './routes/settings.js'
 import crews from './routes/crews.js'
 import invoices from './routes/invoices.js'
+import jobs from './routes/jobs.js'
 import orders from './routes/orders.js'
 import users from './routes/users.js'
 
@@ -41,6 +42,7 @@ app.route('/clients', clients)
 app.route('/billing', billing)
 app.route('/settings', settings)
 app.route('/dashboard', dashboard)
+app.route('/jobs', jobs)
 
 const UPLOAD_MIME: Record<string, string> = {
   jpg: 'image/jpeg',

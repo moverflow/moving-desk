@@ -18,6 +18,7 @@ import {
   getTenantBaseRates,
   isValidTransition,
   listOrders,
+  sendOrderCompletedEmail,
   updateOrder,
 } from '../services/orders.service.js'
 import type { AppVariables } from '../types/index.js'
@@ -132,6 +133,10 @@ ordersRouter.patch('/:id', authMiddleware, async (c) => {
 
   if (d.status === 'confirmed') {
     await sendContractForOrder(tenantId, orderId)
+  }
+
+  if (d.status === 'completed') {
+    await sendOrderCompletedEmail(tenantId, orderId)
   }
 
   return c.json({ order: updated })

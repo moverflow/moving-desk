@@ -10,6 +10,8 @@ const schema = z.object({
   // domain. Defaults to Resend's shared testing sender, which needs no
   // domain setup but can only deliver to your own Resend account email.
   EMAIL_FROM: z.string().default('MovingDesk <onboarding@resend.dev>'),
+  // Shared secret the cron service sends as x-cron-secret to trigger jobs.
+  CRON_SECRET: z.string().min(16),
   FRONTEND_URL: z.string().url(),
   BACKEND_URL: z.string().url().default('http://localhost:3000'),
   PORT: z.coerce.number().default(3000),
