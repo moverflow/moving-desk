@@ -17,7 +17,7 @@ import {
   userExistsByEmail,
 } from '../services/users.service.js'
 
-const PLAN_USER_LIMITS: Record<string, number> = { trial: 1, basic: 3, pro: 10 }
+const PLAN_USER_LIMITS: Record<string, number> = { trial: 3, basic: 3, pro: 10 }
 
 const inviteSchema = z
   .object({
