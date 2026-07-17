@@ -2,9 +2,12 @@ import type Stripe from 'stripe'
 import { eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { subscriptions, tenants } from '../db/schema.js'
+import { sendPaymentConfirmationEmail } from '../lib/email.js'
 import { env } from '../lib/env.js'
+import { logger } from '../lib/logger.js'
 import { stripe } from '../lib/stripe.js'
 import type { Plan, SubscriptionStatus } from '../types/index.js'
+import { markInvoicePaidFromSession } from './invoices.service.js'
 
 function getPlanFromPriceId(priceId: string): Plan {
   if (priceId === env.STRIPE_BASIC_PRICE_ID) return 'basic'
@@ -100,8 +103,45 @@ async function handleSubscriptionUpsert(sub: Stripe.Subscription) {
   }
 }
 
+async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promise<void> {
+  if (session.payment_status !== 'paid') return
+
+  const invoiceId = session.metadata?.invoiceId
+  if (!invoiceId) return // subscription checkout — handled via subscription.* events
+
+  const paymentIntentId =
+    typeof session.payment_intent === 'string'
+      ? session.payment_intent
+      : (session.payment_intent?.id ?? null)
+
+  const paid = await markInvoicePaidFromSession({
+    invoiceId,
+    paymentIntentId,
+    amountTotal: session.amount_total,
+  })
+
+  if (!paid) return // already paid (idempotent replay) or not found
+
+  if (paid.clientEmail) {
+    sendPaymentConfirmationEmail({
+      to: paid.clientEmail,
+      clientName: paid.clientName ?? 'Client',
+      companyName: paid.companyName,
+      amount: paid.amount,
+      moveDate: paid.moveDate,
+      invoiceNumber: paid.number,
+    })
+  }
+
+  logger.info({ invoiceId, amount: paid.amount }, 'Invoice paid via Stripe checkout')
+}
+
 export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
   switch (event.type) {
+    case 'checkout.session.completed':
+      await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session)
+      break
+
     case 'customer.subscription.created':
     case 'customer.subscription.updated':
       await handleSubscriptionUpsert(event.data.object as Stripe.Subscription)

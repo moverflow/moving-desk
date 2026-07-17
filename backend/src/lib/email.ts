@@ -87,6 +87,27 @@ export function sendContractSignedNotification(params: {
     })
 }
 
+export function sendPaymentConfirmationEmail(params: {
+  to: string
+  clientName: string
+  companyName: string
+  amount: number
+  moveDate: string
+  invoiceNumber: string
+}): void {
+  const price = `$${params.amount.toLocaleString('en-US')}`
+  resend.emails
+    .send({
+      from: FROM,
+      to: params.to,
+      subject: `Payment received — ${params.invoiceNumber}`,
+      text: `Hi ${params.clientName},\n\nWe received your payment of ${price} for your move on ${params.moveDate}.\n\nThank you!\n${params.companyName}`,
+    })
+    .catch((err: unknown) => {
+      logger.error({ err }, 'Failed to send payment confirmation email')
+    })
+}
+
 export function sendInviteEmail(email: string, token: string): void {
   resend.emails
     .send({

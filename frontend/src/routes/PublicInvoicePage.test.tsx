@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
@@ -17,10 +17,10 @@ vi.mock('@react-pdf/renderer', () => ({
 
 vi.mock('@/hooks/useInvoices', () => ({
   usePublicInvoice: vi.fn(),
-  useUpdateInvoiceStatus: vi.fn(),
+  useCreatePaymentLink: vi.fn(),
 }))
 
-import { usePublicInvoice, useUpdateInvoiceStatus } from '@/hooks/useInvoices'
+import { usePublicInvoice, useCreatePaymentLink } from '@/hooks/useInvoices'
 
 const MOCK_INVOICE: Invoice = {
   id: 'inv-1', tenantId: '', orderId: 'order-1',
@@ -39,17 +39,22 @@ const MOCK_COMPANY: Company = {
   logoUrl: null,
 }
 
-function renderPublic(token = 'mock-token-1') {
+const mutateAsync = vi.fn()
+
+function renderPublic(invoice: Invoice = MOCK_INVOICE, isPending = false) {
   vi.mocked(usePublicInvoice).mockReturnValue({
-    data: { invoice: MOCK_INVOICE, company: MOCK_COMPANY },
+    data: { invoice, company: MOCK_COMPANY },
     isLoading: false,
   } as ReturnType<typeof usePublicInvoice>)
-  vi.mocked(useUpdateInvoiceStatus).mockReturnValue({ mutate: vi.fn(), isPending: false } as unknown as ReturnType<typeof useUpdateInvoiceStatus>)
+  vi.mocked(useCreatePaymentLink).mockReturnValue({
+    mutateAsync,
+    isPending,
+  } as unknown as ReturnType<typeof useCreatePaymentLink>)
 
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={[`/i/${token}`]}>
+      <MemoryRouter initialEntries={['/i/mock-token-1']}>
         <Routes>
           <Route path="/i/:token" element={<PublicInvoicePage />} />
         </Routes>
@@ -59,6 +64,10 @@ function renderPublic(token = 'mock-token-1') {
 }
 
 describe('PublicInvoicePage', () => {
+  beforeEach(() => {
+    mutateAsync.mockReset()
+  })
+
   it('AC3 — renders invoice data without auth', async () => {
     renderPublic()
     await waitFor(() => {
@@ -80,17 +89,58 @@ describe('PublicInvoicePage', () => {
     })
   })
 
-  it('shows Mark as received button, shows thank you after click', async () => {
-    renderPublic()
-    await waitFor(() => screen.getByRole('button', { name: /mark as received/i }))
-    fireEvent.click(screen.getByRole('button', { name: /mark as received/i }))
-    expect(screen.getByText('Thank you!')).toBeInTheDocument()
-  })
-
   it('AC3 — displays total price', async () => {
     renderPublic()
     await waitFor(() => {
       expect(screen.getAllByText('$480').length).toBeGreaterThan(0)
+    })
+  })
+
+  it('AC8 — Pay now NOT shown when status is draft', async () => {
+    renderPublic({ ...MOCK_INVOICE, status: 'draft' })
+    await waitFor(() => screen.getByText('INV-1089'))
+    expect(screen.queryByRole('button', { name: /pay now/i })).not.toBeInTheDocument()
+  })
+
+  it('AC1 — Pay now shown when status is sent', async () => {
+    renderPublic({ ...MOCK_INVOICE, status: 'sent' })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /pay now/i })).toBeInTheDocument()
+    })
+  })
+
+  it('AC9/AC7 — Payment received shown when paid, no Pay now', async () => {
+    renderPublic({ ...MOCK_INVOICE, status: 'paid', paidAt: '2026-06-15T12:00:00Z' })
+    await waitFor(() => {
+      expect(screen.getByText(/payment received/i)).toBeInTheDocument()
+    })
+    expect(screen.getByText(/paid on/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /pay now/i })).not.toBeInTheDocument()
+  })
+
+  it('AC11 — Pay now disabled while session is being created', async () => {
+    renderPublic({ ...MOCK_INVOICE, status: 'sent' }, true)
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /redirecting/i })).toBeDisabled()
+    })
+  })
+
+  it('AC2 — clicking Pay now creates a session with the share token', async () => {
+    Object.defineProperty(window, 'location', { configurable: true, value: { href: '' } })
+    mutateAsync.mockResolvedValue('https://checkout.stripe.com/c/pay/cs_test_123')
+    renderPublic({ ...MOCK_INVOICE, status: 'sent' })
+    fireEvent.click(await screen.findByRole('button', { name: /pay now/i }))
+    await waitFor(() => {
+      expect(mutateAsync).toHaveBeenCalledWith('mock-token-1')
+    })
+  })
+
+  it('AC10 — shows error when session creation fails', async () => {
+    mutateAsync.mockRejectedValue(new Error('Stripe unavailable'))
+    renderPublic({ ...MOCK_INVOICE, status: 'sent' })
+    fireEvent.click(await screen.findByRole('button', { name: /pay now/i }))
+    await waitFor(() => {
+      expect(screen.getByText('Stripe unavailable')).toBeInTheDocument()
     })
   })
 })

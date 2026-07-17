@@ -4,6 +4,7 @@ import { sendInvoiceEmail } from '../lib/email.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { updateClient } from '../services/clients.service.js'
 import {
+  createInvoicePaymentLink,
   generateInvoice,
   getInvoiceById,
   getInvoiceSendData,
@@ -29,6 +30,16 @@ invoicesRouter.get('/share/:token', async (c) => {
   const data = await getPublicInvoice(c.req.param('token'))
   if (!data) return c.json({ error: 'Invoice not found or expired' }, 404)
   return c.json({ invoice: data })
+})
+
+// PUBLIC — the share token authorizes payment; the client is not logged in.
+invoicesRouter.post('/share/:token/payment-link', async (c) => {
+  const result = await createInvoicePaymentLink(c.req.param('token'))
+  if (!result.ok) {
+    if (result.reason === 'not_found') return c.json({ error: 'Invoice not found or expired' }, 404)
+    return c.json({ error: 'This invoice is not available for payment' }, 422)
+  }
+  return c.json({ checkoutUrl: result.checkoutUrl })
 })
 
 invoicesRouter.get('/', authMiddleware, async (c) => {

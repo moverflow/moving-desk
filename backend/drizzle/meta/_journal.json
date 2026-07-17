@@ -43,6 +43,13 @@
       "when": 1784046636390,
       "tag": "0005_nasty_lockjaw",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784315567892,
+      "tag": "0006_chubby_baron_strucker",
+      "breakpoints": true
     }
   ]
 }
