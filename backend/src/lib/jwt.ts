@@ -5,7 +5,12 @@ import { env } from './env.js'
 const secret = new TextEncoder().encode(env.JWT_SECRET)
 
 export async function signToken(payload: Omit<JwtPayload, 'iat' | 'exp'>): Promise<string> {
-  return new SignJWT({ tenantId: payload.tenantId, role: payload.role, plan: payload.plan })
+  return new SignJWT({
+    tenantId: payload.tenantId,
+    role: payload.role,
+    plan: payload.plan,
+    ...(payload.crewId ? { crewId: payload.crewId } : {}),
+  })
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(payload.sub)
     .setIssuedAt()

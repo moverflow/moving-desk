@@ -149,6 +149,7 @@ auth.post('/login', async (c) => {
     tenantId: row.tenant_id,
     role: row.role as UserRole,
     plan: (row.plan ?? 'trial') as Plan,
+    crewId: row.crew_id ?? undefined,
   })
 
   setCookie(c, 'token', jwt, {
@@ -165,6 +166,8 @@ auth.post('/login', async (c) => {
       email: row.email,
       name: row.name,
       role: row.role,
+      crewId: row.crew_id ?? null,
+      crewName: row.crewName ?? null,
     },
     tenant: {
       id: row.tenant_id,
@@ -178,7 +181,14 @@ auth.get('/me', authMiddleware, async (c) => {
   const data = await getMeData(c.get('userId'), c.get('tenantId'))
   if (!data) return c.json({ error: 'Not found' }, 404)
   return c.json({
-    user: { id: data.userId, email: data.userEmail, name: data.userName, role: data.userRole },
+    user: {
+      id: data.userId,
+      email: data.userEmail,
+      name: data.userName,
+      role: data.userRole,
+      crewId: data.userCrewId ?? null,
+      crewName: data.userCrewName ?? null,
+    },
     tenant: { id: data.tenantId, name: data.tenantName, plan: data.tenantPlan ?? 'trial' },
   })
 })

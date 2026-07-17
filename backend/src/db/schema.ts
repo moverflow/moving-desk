@@ -68,8 +68,12 @@ export const users = pgTable('users', {
   password_hash: text('password_hash').notNull(),
 
   role: varchar('role', { length: 20 })
-    .$type<'owner' | 'dispatcher'>()  // TypeScript enum через тип
+    .$type<'owner' | 'dispatcher' | 'crew'>()  // TypeScript enum через тип
     .notNull(),
+
+  // Для роли 'crew' — привязка к бригаде. Ограничивает crew-пользователя
+  // заказами только своей бригады (мобильный PWA-экран бригады).
+  crew_id: uuid('crew_id').references(() => crews.id),
 
   name: varchar('name', { length: 255 }).notNull(),
   created_at: timestamp('created_at').defaultNow(),
@@ -279,6 +283,15 @@ export const invites = pgTable('invites', {
   tenant_id: uuid('tenant_id').notNull().references(() => tenants.id),
   email: varchar('email', { length: 255 }).notNull(),
   token: uuid('token').unique().notNull().defaultRandom(),
+
+  // Роль приглашённого пользователя. Для 'crew' обязателен crew_id — при
+  // принятии инвайта пользователь привязывается к своей бригаде.
+  role: varchar('role', { length: 20 })
+    .$type<'owner' | 'dispatcher' | 'crew'>()
+    .notNull()
+    .default('dispatcher'),
+  crew_id: uuid('crew_id').references(() => crews.id),
+
   expires_at: timestamp('expires_at').notNull(),
   created_at: timestamp('created_at').defaultNow(),
 }

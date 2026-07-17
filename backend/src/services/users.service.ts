@@ -1,8 +1,10 @@
 import { and, eq, gt, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { invites, tenants, users } from '../db/schema.js'
+import { crews, invites, tenants, users } from '../db/schema.js'
 import { signToken } from '../lib/jwt.js'
-import type { Plan } from '../types/index.js'
+import type { Plan, UserRole } from '../types/index.js'
+
+export type InviteRole = 'dispatcher' | 'crew'
 
 export async function countUsersInTenant(tenantId: string): Promise<number> {
   const result = await db
@@ -10,6 +12,15 @@ export async function countUsersInTenant(tenantId: string): Promise<number> {
     .from(users)
     .where(eq(users.tenant_id, tenantId))
   return result[0]?.value ?? 0
+}
+
+export async function crewExistsForTenant(tenantId: string, crewId: string): Promise<boolean> {
+  const rows = await db
+    .select({ id: crews.id })
+    .from(crews)
+    .where(and(eq(crews.id, crewId), eq(crews.tenant_id, tenantId)))
+    .limit(1)
+  return rows.length > 0
 }
 
 export async function userExistsByEmail(email: string): Promise<boolean> {
@@ -21,13 +32,24 @@ export async function userExistsByEmail(email: string): Promise<boolean> {
   return rows.length > 0
 }
 
-export async function createInvite(tenantId: string, email: string) {
+export async function createInvite(
+  tenantId: string,
+  email: string,
+  role: InviteRole = 'dispatcher',
+  crewId?: string
+) {
   const expiresAt = new Date()
   expiresAt.setHours(expiresAt.getHours() + 48)
 
   const [invite] = await db
     .insert(invites)
-    .values({ tenant_id: tenantId, email, expires_at: expiresAt })
+    .values({
+      tenant_id: tenantId,
+      email,
+      role,
+      crew_id: role === 'crew' ? (crewId ?? null) : null,
+      expires_at: expiresAt,
+    })
     .returning()
 
   return invite
@@ -39,6 +61,8 @@ export async function findInviteByToken(token: string) {
       id: invites.id,
       email: invites.email,
       tenant_id: invites.tenant_id,
+      role: invites.role,
+      crew_id: invites.crew_id,
       tenantName: tenants.name,
       tenantPlan: tenants.plan,
     })
@@ -54,6 +78,8 @@ export async function joinWithInvite(params: {
   inviteEmail: string
   tenantId: string
   tenantPlan: string | null
+  role: UserRole
+  crewId: string | null
   name: string
   passwordHash: string
 }) {
@@ -64,7 +90,8 @@ export async function joinWithInvite(params: {
         tenant_id: params.tenantId,
         email: params.inviteEmail,
         password_hash: params.passwordHash,
-        role: 'dispatcher',
+        role: params.role,
+        crew_id: params.role === 'crew' ? params.crewId : null,
         name: params.name,
       })
       .returning()
@@ -74,8 +101,9 @@ export async function joinWithInvite(params: {
     const jwt = await signToken({
       sub: user.id,
       tenantId: params.tenantId,
-      role: 'dispatcher',
+      role: params.role,
       plan: (params.tenantPlan ?? 'trial') as Plan,
+      crewId: params.role === 'crew' ? (params.crewId ?? undefined) : undefined,
     })
 
     return { user, jwt }

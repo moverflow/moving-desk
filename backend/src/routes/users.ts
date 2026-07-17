@@ -9,6 +9,7 @@ import type { AppVariables } from '../types/index.js'
 import {
   countUsersInTenant,
   createInvite,
+  crewExistsForTenant,
   findInviteByToken,
   joinWithInvite,
   listTeam,
@@ -18,7 +19,16 @@ import {
 
 const PLAN_USER_LIMITS: Record<string, number> = { trial: 1, basic: 3, pro: 10 }
 
-const inviteSchema = z.object({ email: z.string().email() })
+const inviteSchema = z
+  .object({
+    email: z.string().email(),
+    role: z.enum(['dispatcher', 'crew']).default('dispatcher'),
+    crewId: z.string().uuid().optional(),
+  })
+  .refine((d) => d.role !== 'crew' || !!d.crewId, {
+    message: 'crewId is required for crew invites',
+    path: ['crewId'],
+  })
 
 const joinSchema = z.object({
   token: z.string().uuid(),
@@ -41,7 +51,7 @@ usersRouter.post('/invite', authMiddleware, requireOwner, async (c) => {
     return c.json({ error: 'Invalid email' }, 400)
   }
 
-  const { email } = result.data
+  const { email, role, crewId } = result.data
   const tenantId = c.get('tenantId') as string
   const plan = c.get('plan') as string
 
@@ -60,7 +70,11 @@ usersRouter.post('/invite', authMiddleware, requireOwner, async (c) => {
     return c.json({ error: 'User already exists' }, 409)
   }
 
-  const invite = await createInvite(tenantId, email)
+  if (role === 'crew' && !(await crewExistsForTenant(tenantId, crewId!))) {
+    return c.json({ error: 'Crew not found' }, 404)
+  }
+
+  const invite = await createInvite(tenantId, email, role, crewId)
   sendInviteEmail(email, invite.token)
 
   return c.json({ message: 'Invite sent', email }, 201)
@@ -93,6 +107,8 @@ usersRouter.post('/join', async (c) => {
     inviteEmail: invite.email,
     tenantId: invite.tenant_id,
     tenantPlan: invite.tenantPlan,
+    role: invite.role,
+    crewId: invite.crew_id,
     name,
     passwordHash,
   })

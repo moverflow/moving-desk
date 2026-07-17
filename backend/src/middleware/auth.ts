@@ -15,6 +15,7 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
     c.set('tenantId', payload.tenantId)
     c.set('role', payload.role)
     c.set('plan', payload.plan)
+    c.set('crewId', payload.crewId ?? null)
   } catch {
     return c.json({ error: 'Unauthorized' }, 401)
   }
@@ -24,6 +25,16 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
 
 export const requireOwner: MiddlewareHandler = async (c, next) => {
   if (c.get('role') !== 'owner') {
+    return c.json({ error: 'Forbidden' }, 403)
+  }
+  await next()
+}
+
+// Crew-only guard for the mobile PWA endpoints. Owners/dispatchers use the full
+// desktop app and are rejected here (AC6/AC19) — the crew screen is scoped to a
+// single crew's own jobs via the crewId carried in the JWT.
+export const requireCrew: MiddlewareHandler = async (c, next) => {
+  if (c.get('role') !== 'crew') {
     return c.json({ error: 'Forbidden' }, 403)
   }
   await next()

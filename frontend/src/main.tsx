@@ -14,6 +14,14 @@ const queryClient = new QueryClient({
   },
 })
 
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      /* SW registration is best-effort — app still works without offline caching */
+    })
+  })
+}
+
 const rootElement = document.getElementById('root')
 if (!rootElement) throw new Error('Root element not found')
 

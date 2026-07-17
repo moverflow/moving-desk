@@ -4,7 +4,7 @@ import { Navigate, Outlet } from 'react-router-dom'
 import { useMe } from '@/hooks/useAuth'
 import { useAuthStore } from '@/store/auth.store'
 
-export default function ProtectedRoute(): JSX.Element {
+export default function CrewProtectedRoute(): JSX.Element {
   const { isAuthenticated, user, setAuth } = useAuthStore()
   const { data, isLoading } = useMe()
 
@@ -15,8 +15,8 @@ export default function ProtectedRoute(): JSX.Element {
   }, [data, isAuthenticated, setAuth])
 
   if (isAuthenticated) {
-    // Crew members belong on the mobile PWA, not the desktop app (AC18/AC19).
-    return user?.role === 'crew' ? <Navigate to="/crew" replace /> : <Outlet />
+    // Only crew members get the crew screen; everyone else goes to the main app.
+    return user?.role === 'crew' ? <Outlet /> : <Navigate to="/orders" replace />
   }
 
   if (isLoading || data) {
@@ -27,5 +27,5 @@ export default function ProtectedRoute(): JSX.Element {
     )
   }
 
-  return <Navigate to="/login" replace />
+  return <Navigate to="/crew/login" replace />
 }

@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { subscriptions, tenants, users } from '../db/schema.js'
+import { crews, subscriptions, tenants, users } from '../db/schema.js'
 import { signToken } from '../lib/jwt.js'
 import { logger } from '../lib/logger.js'
 import { stripe } from '../lib/stripe.js'
@@ -12,6 +12,8 @@ export async function loginUser(email: string) {
       email: users.email,
       name: users.name,
       role: users.role,
+      crew_id: users.crew_id,
+      crewName: crews.name,
       password_hash: users.password_hash,
       tenant_id: users.tenant_id,
       tenantName: tenants.name,
@@ -22,6 +24,7 @@ export async function loginUser(email: string) {
     .from(users)
     .innerJoin(tenants, eq(tenants.id, users.tenant_id))
     .leftJoin(subscriptions, eq(subscriptions.tenant_id, tenants.id))
+    .leftJoin(crews, eq(crews.id, users.crew_id))
     .where(eq(users.email, email))
     .limit(1)
   return rows[0] ?? null
@@ -122,12 +125,15 @@ export async function getMeData(userId: string, tenantId: string) {
       userEmail: users.email,
       userName: users.name,
       userRole: users.role,
+      userCrewId: users.crew_id,
+      userCrewName: crews.name,
       tenantId: tenants.id,
       tenantName: tenants.name,
       tenantPlan: tenants.plan,
     })
     .from(users)
     .innerJoin(tenants, eq(tenants.id, users.tenant_id))
+    .leftJoin(crews, eq(crews.id, users.crew_id))
     .where(and(eq(users.id, userId), eq(users.tenant_id, tenantId)))
     .limit(1)
   return rows[0] ?? null

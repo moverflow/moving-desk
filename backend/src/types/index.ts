@@ -1,4 +1,4 @@
-export type UserRole = 'owner' | 'dispatcher'
+export type UserRole = 'owner' | 'dispatcher' | 'crew'
 
 export type Plan = 'trial' | 'basic' | 'pro'
 
@@ -17,6 +17,7 @@ export type AppVariables = {
   tenantId: string
   role: string
   plan: string
+  crewId: string | null
 }
 
 export interface JwtPayload {
@@ -24,6 +25,7 @@ export interface JwtPayload {
   tenantId: string
   role: UserRole
   plan: Plan
+  crewId?: string
   iat: number
   exp: number
 }
