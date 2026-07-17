@@ -17,6 +17,10 @@ vi.mock('@/hooks/useSettings', () => ({
   useSubscription: vi.fn(),
 }))
 
+vi.mock('@/hooks/useCrews', () => ({
+  useCrews: vi.fn(() => ({ data: [] })),
+}))
+
 import {
   useSettings, useUpdateSettings, useUploadLogo,
   useTeam, useInviteMember, useRemoveMember, useSubscription,
@@ -126,7 +130,7 @@ describe('SettingsPage', () => {
     await user.click(screen.getByRole('tab', { name: /team/i }))
     await waitFor(() => screen.getByPlaceholderText(/teammate/i))
     await user.type(screen.getByPlaceholderText(/teammate/i), 'new@team.com')
-    await user.click(screen.getByRole('button', { name: /^invite$/i }))
+    await user.click(screen.getByRole('button', { name: /send invite/i }))
     await waitFor(() => {
       expect(screen.getByText('Invite sent!')).toBeInTheDocument()
     })

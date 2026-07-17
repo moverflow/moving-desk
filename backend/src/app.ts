@@ -10,6 +10,7 @@ import auth from './routes/auth.js'
 import billing from './routes/billing.js'
 import book from './routes/book.js'
 import contract from './routes/contract.js'
+import crew from './routes/crew.js'
 import clients from './routes/clients.js'
 import dashboard from './routes/dashboard.js'
 import settings from './routes/settings.js'
@@ -37,6 +38,7 @@ app.route('/auth', auth)
 app.route('/users', users)
 app.route('/orders', orders)
 app.route('/crews', crews)
+app.route('/crew', crew)
 app.route('/invoices', invoices)
 app.route('/clients', clients)
 app.route('/billing', billing)

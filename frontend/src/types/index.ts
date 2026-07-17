@@ -3,6 +3,32 @@ export interface User {
   email: string
   name: string
   role: string
+  crewId?: string | null
+  crewName?: string | null
+}
+
+export interface CrewJob {
+  id: string
+  status: OrderStatus
+  moveDate: string
+  fromAddress: string
+  toAddress: string
+  fromFloor: number
+  toFloor: number
+  fromElevator: boolean
+  toElevator: boolean
+  homeSize: HomeSize
+  packing: boolean
+  notes: string | null
+  totalPrice: number
+  clientName: string
+  clientPhone: string
+}
+
+export interface CrewJobFile {
+  id: string
+  name: string
+  url: string
 }
 
 export interface Tenant {
@@ -81,7 +107,7 @@ export interface Company {
   logoUrl: string | null
 }
 
-export type UserRole = 'owner' | 'dispatcher'
+export type UserRole = 'owner' | 'dispatcher' | 'crew'
 export type SubscriptionPlan = 'trial' | 'basic' | 'pro'
 export type SubscriptionStatus = 'trialing' | 'active' | 'canceled' | 'past_due'
 

@@ -1,0 +1,21 @@
+{
+  "name": "MovingDesk Crew",
+  "short_name": "Crew",
+  "description": "Your moving jobs for today",
+  "start_url": "/crew",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1D9E75",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

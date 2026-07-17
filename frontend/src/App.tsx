@@ -2,6 +2,7 @@ import type { JSX } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import AppShell from '@/components/shared/AppShell'
 import ProtectedRoute from '@/components/shared/ProtectedRoute'
+import CrewProtectedRoute from '@/components/shared/CrewProtectedRoute'
 import DashboardPage from '@/routes/DashboardPage'
 import OrdersPage from '@/routes/OrdersPage'
 import SchedulePage from '@/routes/SchedulePage'
@@ -17,6 +18,8 @@ import PaySuccessPage from '@/routes/PaySuccessPage'
 import BookingPage from '@/routes/BookingPage'
 import ContractPage from '@/routes/ContractPage'
 import SettingsPage from '@/routes/SettingsPage'
+import CrewLoginPage from '@/routes/CrewLoginPage'
+import CrewHomePage from '@/routes/CrewHomePage'
 import { useAuthStore } from '@/store/auth.store'
 
 function DefaultRedirect(): JSX.Element {
@@ -35,6 +38,10 @@ export default function App(): JSX.Element {
       <Route path="/pay/success" element={<PaySuccessPage />} />
       <Route path="/book/:slug" element={<BookingPage />} />
       <Route path="/contract/:token" element={<ContractPage />} />
+      <Route path="/crew/login" element={<CrewLoginPage />} />
+      <Route element={<CrewProtectedRoute />}>
+        <Route path="/crew" element={<CrewHomePage />} />
+      </Route>
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
           <Route path="/" element={<DefaultRedirect />} />

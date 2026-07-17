@@ -63,13 +63,19 @@ export function useTeam() {
   })
 }
 
+interface InviteInput {
+  email: string
+  role: 'dispatcher' | 'crew'
+  crewId?: string
+}
+
 export function useInviteMember() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (email: string) =>
+    mutationFn: ({ email, role, crewId }: InviteInput) =>
       apiFetch<{ message: string; email: string }>('/users/invite', {
         method: 'POST',
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, role, ...(role === 'crew' && crewId ? { crewId } : {}) }),
       }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['team'] }),
   })
