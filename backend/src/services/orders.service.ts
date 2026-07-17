@@ -1,7 +1,19 @@
 import { and, desc, eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { clients, crews, orders, tenants } from '../db/schema.js'
+import { clients, crews, invoices, orders, tenants } from '../db/schema.js'
+import { env } from '../lib/env.js'
+import { sendMoveCompletedEmail } from '../lib/email.js'
+import { logger } from '../lib/logger.js'
 import type { HomeSize, OrderStatus, TenantSettings } from '../types/index.js'
+
+function formatMoveDate(moveDate: string): string {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(`${moveDate}T00:00:00Z`))
+}
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   new: ['confirmed', 'cancelled'],
@@ -199,4 +211,41 @@ export async function updateOrder(
     .where(and(eq(orders.id, orderId), eq(orders.tenant_id, tenantId)))
     .returning()
   return updated ?? null
+}
+
+// Sends the "move complete — thank you" email to the client when an order is
+// marked completed. Best-effort: a missing client email, missing invoice, or a
+// send failure is logged, never thrown, so it can't break the status update.
+export async function sendOrderCompletedEmail(tenantId: string, orderId: string): Promise<void> {
+  try {
+    const [row] = await db
+      .select({
+        moveDate: orders.move_date,
+        clientEmail: clients.email,
+        clientName: clients.name,
+        companyName: tenants.name,
+        companySettings: tenants.settings,
+        shareToken: invoices.share_token,
+      })
+      .from(orders)
+      .leftJoin(clients, eq(clients.id, orders.client_id))
+      .innerJoin(tenants, eq(tenants.id, orders.tenant_id))
+      .leftJoin(invoices, eq(invoices.order_id, orders.id))
+      .where(and(eq(orders.id, orderId), eq(orders.tenant_id, tenantId)))
+      .limit(1)
+
+    if (!row?.clientEmail) return
+
+    const settings = (row.companySettings ?? {}) as Partial<TenantSettings>
+    await sendMoveCompletedEmail({
+      to: row.clientEmail,
+      clientName: row.clientName ?? 'there',
+      companyName: row.companyName,
+      companyPhone: settings.phone ?? null,
+      moveDate: formatMoveDate(row.moveDate),
+      invoiceUrl: row.shareToken ? `${env.FRONTEND_URL}/i/${row.shareToken}` : null,
+    })
+  } catch (err) {
+    logger.error({ err, orderId }, 'Failed to send move completed email')
+  }
 }

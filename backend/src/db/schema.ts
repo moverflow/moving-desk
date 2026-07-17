@@ -182,6 +182,10 @@ export const orders = pgTable('orders', {
   // URL картинки подписи в R2
   contract_signature_url: text('contract_signature_url'),
 
+  // ─── Automated notifications (Sprint 6) ─────────────────────────────────────
+  // Guard against sending the 24h reminder email more than once per order.
+  reminder_sent: boolean('reminder_sent').notNull().default(false),
+
   created_at: timestamp('created_at').defaultNow(),
   updated_at: timestamp('updated_at').defaultNow(),
 },
