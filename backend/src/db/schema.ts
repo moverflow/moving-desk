@@ -225,6 +225,9 @@ export const invoices = pgTable('invoices', {
 
   pdf_url: text('pdf_url'),
   share_token: uuid('share_token').unique().defaultRandom(),
+  stripe_payment_intent_id: varchar('stripe_payment_intent_id', { length: 255 }),
+  stripe_checkout_session_id: varchar('stripe_checkout_session_id', { length: 255 }),
+  paid_amount: integer('paid_amount'),
   sent_at: timestamp('sent_at'),
   paid_at: timestamp('paid_at'),
   expires_at: timestamp('expires_at'),

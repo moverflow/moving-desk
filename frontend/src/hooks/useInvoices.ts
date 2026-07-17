@@ -99,6 +99,8 @@ interface PublicInvoiceRow {
   invoiceId: string
   number: string
   status: string
+  paidAt: string | null
+  stripeSessionId: string | null
   createdAt: string | null
   fromAddress: string
   toAddress: string
@@ -137,6 +139,7 @@ export function usePublicInvoice(token: string) {
         basePrice: row.basePrice,
         totalPrice: row.totalPrice,
         shareToken: token,
+        paidAt: row.paidAt ?? undefined,
         createdAt: row.createdAt ?? '',
       }
       const company: Company = {
@@ -148,5 +151,14 @@ export function usePublicInvoice(token: string) {
       return { invoice, company }
     },
     enabled: token.length > 0,
+  })
+}
+
+export function useCreatePaymentLink() {
+  return useMutation({
+    mutationFn: (token: string) =>
+      apiFetch<{ checkoutUrl: string }>(`/invoices/share/${token}/payment-link`, {
+        method: 'POST',
+      }).then((res) => res.checkoutUrl),
   })
 }

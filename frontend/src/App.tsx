@@ -13,6 +13,7 @@ import LoginPage from '@/routes/LoginPage'
 import QuickSetupPage from '@/routes/QuickSetupPage'
 import JoinPage from '@/routes/JoinPage'
 import PublicInvoicePage from '@/routes/PublicInvoicePage'
+import PaySuccessPage from '@/routes/PaySuccessPage'
 import BookingPage from '@/routes/BookingPage'
 import ContractPage from '@/routes/ContractPage'
 import SettingsPage from '@/routes/SettingsPage'
@@ -31,6 +32,7 @@ export default function App(): JSX.Element {
       <Route path="/setup" element={<QuickSetupPage />} />
       <Route path="/join" element={<JoinPage />} />
       <Route path="/i/:token" element={<PublicInvoicePage />} />
+      <Route path="/pay/success" element={<PaySuccessPage />} />
       <Route path="/book/:slug" element={<BookingPage />} />
       <Route path="/contract/:token" element={<ContractPage />} />
       <Route element={<ProtectedRoute />}>
