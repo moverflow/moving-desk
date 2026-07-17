@@ -14,8 +14,10 @@ vi.mock('../lib/logger.js', () => ({
 }))
 
 const sendDailyRemindersMock = vi.fn()
+const sendLeadRemindersMock = vi.fn()
 vi.mock('../jobs/reminder.js', () => ({
   sendDailyReminders: () => sendDailyRemindersMock(),
+  sendUncontactedLeadReminders: () => sendLeadRemindersMock(),
 }))
 
 const { default: jobsRouter } = await import('./jobs.js')
@@ -27,6 +29,8 @@ const SECRET = 'super-secret-cron-token'
 beforeEach(() => {
   sendDailyRemindersMock.mockReset()
   sendDailyRemindersMock.mockResolvedValue(undefined)
+  sendLeadRemindersMock.mockReset()
+  sendLeadRemindersMock.mockResolvedValue(undefined)
 })
 
 describe('POST /jobs/reminders', () => {
@@ -53,10 +57,12 @@ describe('POST /jobs/reminders', () => {
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ message: 'Reminder job started' })
     expect(sendDailyRemindersMock).toHaveBeenCalledTimes(1)
+    expect(sendLeadRemindersMock).toHaveBeenCalledTimes(1)
   })
 
-  it('still returns 200 even if the job rejects (runs detached)', async () => {
+  it('still returns 200 even if the jobs reject (run detached)', async () => {
     sendDailyRemindersMock.mockRejectedValue(new Error('boom'))
+    sendLeadRemindersMock.mockRejectedValue(new Error('boom'))
     const res = await app.request('/jobs/reminders', {
       method: 'POST',
       headers: { 'x-cron-secret': SECRET },

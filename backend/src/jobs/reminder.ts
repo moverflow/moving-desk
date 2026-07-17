@@ -1,7 +1,8 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, lt } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { clients, orders, tenants } from '../db/schema.js'
-import { sendMoveReminderEmail } from '../lib/email.js'
+import { clients, leads, orders, tenants, users } from '../db/schema.js'
+import { env } from '../lib/env.js'
+import { sendLeadReminderEmail, sendMoveReminderEmail } from '../lib/email.js'
 import { logger } from '../lib/logger.js'
 import type { TenantSettings } from '../types/index.js'
 
@@ -91,4 +92,66 @@ export async function sendDailyReminders(): Promise<void> {
   }
 
   logger.info('Daily reminder job complete')
+}
+
+// Nudges the tenant owner about leads still in 'new' status after 24h so no
+// opportunity is forgotten. Best-effort per lead; marks reminder_sent only after
+// a successful send so each stale lead pings the owner at most once.
+export async function sendUncontactedLeadReminders(): Promise<void> {
+  logger.info('Running uncontacted lead reminder job...')
+
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000)
+
+  const staleLeads = await db
+    .select({
+      leadId: leads.id,
+      tenantId: leads.tenant_id,
+      name: leads.name,
+      phone: leads.phone,
+      source: leads.source,
+      createdAt: leads.created_at,
+    })
+    .from(leads)
+    .where(
+      and(
+        eq(leads.status, 'new'),
+        eq(leads.reminder_sent, false),
+        lt(leads.created_at, cutoff),
+      ),
+    )
+
+  logger.info(`Found ${staleLeads.length} uncontacted leads`)
+
+  for (const lead of staleLeads) {
+    try {
+      const [owner] = await db
+        .select({ email: users.email, name: users.name })
+        .from(users)
+        .where(and(eq(users.tenant_id, lead.tenantId), eq(users.role, 'owner')))
+        .limit(1)
+
+      if (!owner?.email) continue
+
+      await sendLeadReminderEmail({
+        to: owner.email,
+        ownerName: owner.name,
+        leadName: lead.name,
+        leadPhone: lead.phone,
+        leadSource: lead.source,
+        createdAt: lead.createdAt ?? new Date(),
+        leadsUrl: `${env.FRONTEND_URL}/orders?tab=leads`,
+      })
+
+      await db
+        .update(leads)
+        .set({ reminder_sent: true })
+        .where(and(eq(leads.id, lead.leadId), eq(leads.tenant_id, lead.tenantId)))
+
+      logger.info({ leadId: lead.leadId }, 'Lead reminder sent successfully')
+    } catch (err) {
+      logger.error({ err, leadId: lead.leadId }, 'Failed to send lead reminder')
+    }
+  }
+
+  logger.info('Uncontacted lead reminder job complete')
 }

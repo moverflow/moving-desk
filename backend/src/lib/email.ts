@@ -150,6 +150,33 @@ export async function sendMoveCompletedEmail(params: {
   })
 }
 
+// Awaited so the lead reminder job marks a lead as reminded only after a
+// successful send and continues past a single failure.
+export async function sendLeadReminderEmail(params: {
+  to: string
+  ownerName: string
+  leadName: string
+  leadPhone: string | null
+  leadSource: string
+  createdAt: Date
+  leadsUrl: string
+}): Promise<void> {
+  const received = new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: 'UTC',
+  }).format(params.createdAt)
+  await resend.emails.send({
+    from: FROM,
+    to: params.to,
+    subject: `⚡ New lead hasn't been contacted yet — ${params.leadName}`,
+    text: `Hi ${params.ownerName},\n\nYou have a lead that hasn't been contacted in over 24 hours:\n\nName:     ${params.leadName}\nPhone:    ${params.leadPhone ?? '—'}\nSource:   ${params.leadSource}\nReceived: ${received}\n\nDon't let this opportunity slip away!\n\nView leads → ${params.leadsUrl}\n\nMovingDesk`,
+  })
+}
+
 export function sendInviteEmail(email: string, token: string): void {
   resend.emails
     .send({

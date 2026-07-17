@@ -68,6 +68,25 @@ export interface Order {
 
 export type ContractStatus = 'none' | 'sent' | 'signed'
 
+export type LeadStatus = 'new' | 'contacted' | 'quoted' | 'booked' | 'lost'
+export type LeadSource = 'manual' | 'booking_page' | 'zapier' | 'phone'
+
+export interface Lead {
+  id: string
+  name: string
+  phone: string | null
+  email: string | null
+  fromAddress: string | null
+  toAddress: string | null
+  moveDate: string | null
+  homeSize: string | null
+  notes: string | null
+  status: LeadStatus
+  source: LeadSource
+  convertedOrderId: string | null
+  createdAt: string
+}
+
 export interface Crew {
   id: string
   name: string
@@ -183,8 +202,8 @@ export interface BookingFormData {
 }
 
 export interface BookingResult {
-  orderId: string
-  totalPrice: number
+  success: boolean
+  leadId: string
   confirmationMessage: string
 }
 

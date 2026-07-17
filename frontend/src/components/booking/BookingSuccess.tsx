@@ -1,5 +1,5 @@
 import type { JSX } from 'react'
-import { formatCurrency, formatDate, formatPhone } from '@/lib/utils'
+import { formatDate, formatPhone } from '@/lib/utils'
 
 interface BookingSuccessProps {
   companyName: string
@@ -7,7 +7,6 @@ interface BookingSuccessProps {
   moveDate: string
   fromAddress: string
   toAddress: string
-  totalPrice: number
 }
 
 export default function BookingSuccess({
@@ -16,21 +15,20 @@ export default function BookingSuccess({
   moveDate,
   fromAddress,
   toAddress,
-  totalPrice,
 }: BookingSuccessProps): JSX.Element {
   return (
     <div className="text-center py-6">
       <div className="text-4xl mb-3">✅</div>
-      <h2 className="text-xl font-semibold text-gray-900">You&apos;re booked!</h2>
+      <h2 className="text-xl font-semibold text-gray-900">Request received!</h2>
       <p className="text-sm text-gray-500 mt-2">
-        {companyName} will be in touch to confirm your move.
+        Thank you. We received your moving request and will contact you shortly to confirm.
+        {' '}{companyName} will be in touch within 1 business day.
       </p>
 
       <div className="mt-6 text-left rounded-lg border border-gray-200 divide-y divide-gray-100">
         <Row label="Move date" value={formatDate(new Date(`${moveDate}T00:00:00Z`))} />
         <Row label="From" value={fromAddress} />
         <Row label="To" value={toAddress} />
-        <Row label="Estimated price" value={formatCurrency(totalPrice)} />
       </div>
 
       {companyPhone && (

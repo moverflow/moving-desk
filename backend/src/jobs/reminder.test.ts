@@ -33,16 +33,22 @@ vi.mock('../db/index.js', () => {
   }
 })
 
+vi.mock('../lib/env.js', () => ({
+  env: { FRONTEND_URL: 'http://localhost:5173' },
+}))
+
 const sendMoveReminderEmailMock = vi.fn()
+const sendLeadReminderEmailMock = vi.fn()
 vi.mock('../lib/email.js', () => ({
   sendMoveReminderEmail: (...args: unknown[]) => sendMoveReminderEmailMock(...args),
+  sendLeadReminderEmail: (...args: unknown[]) => sendLeadReminderEmailMock(...args),
 }))
 
 vi.mock('../lib/logger.js', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), error: vi.fn(), warn: vi.fn() },
 }))
 
-const { sendDailyReminders } = await import('./reminder.js')
+const { sendDailyReminders, sendUncontactedLeadReminders } = await import('./reminder.js')
 
 function eqPairs(node: unknown, pairs: Array<{ column: string; value: unknown }> = []): Array<{ column: string; value: unknown }> {
   if (!node || typeof node !== 'object') return pairs
@@ -88,6 +94,8 @@ beforeEach(() => {
   updateCalls.length = 0
   sendMoveReminderEmailMock.mockReset()
   sendMoveReminderEmailMock.mockResolvedValue(undefined)
+  sendLeadReminderEmailMock.mockReset()
+  sendLeadReminderEmailMock.mockResolvedValue(undefined)
 })
 
 describe('sendDailyReminders', () => {
@@ -162,6 +170,57 @@ describe('sendDailyReminders', () => {
     await sendDailyReminders()
 
     expect(sendMoveReminderEmailMock).not.toHaveBeenCalled()
+    expect(updateCalls).toEqual([])
+  })
+})
+
+function staleLead(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    leadId: 'lead-1',
+    tenantId: TENANT_A,
+    name: 'Rick Adams',
+    phone: '(949) 632-9557',
+    source: 'booking_page',
+    createdAt: new Date('2026-07-01T12:00:00Z'),
+    ...overrides,
+  }
+}
+
+describe('sendUncontactedLeadReminders', () => {
+  it('AC13/AC14 — emails the owner about a stale new lead and marks it reminded', async () => {
+    selectQueue.push([staleLead()]) // stale leads query
+    selectQueue.push([{ email: 'owner@example.com', name: 'Owner' }]) // owner lookup
+
+    await sendUncontactedLeadReminders()
+
+    expect(sendLeadReminderEmailMock).toHaveBeenCalledTimes(1)
+    expect(sendLeadReminderEmailMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'owner@example.com',
+        ownerName: 'Owner',
+        leadName: 'Rick Adams',
+        leadsUrl: 'http://localhost:5173/orders?tab=leads', // AC15
+      }),
+    )
+    expect(updateCalls).toEqual([{ values: { reminder_sent: true } }])
+  })
+
+  it('AC13 — the stale-lead query filters by status=new and reminder_sent=false', async () => {
+    selectQueue.push([])
+    await sendUncontactedLeadReminders()
+
+    const byColumn = Object.fromEntries(eqPairs(whereConds[0]).map((p) => [p.column, p.value]))
+    expect(byColumn.status).toBe('new')
+    expect(byColumn.reminder_sent).toBe(false)
+  })
+
+  it('skips a lead whose tenant has no owner email and does not mark it', async () => {
+    selectQueue.push([staleLead()])
+    selectQueue.push([]) // no owner
+
+    await sendUncontactedLeadReminders()
+
+    expect(sendLeadReminderEmailMock).not.toHaveBeenCalled()
     expect(updateCalls).toEqual([])
   })
 })

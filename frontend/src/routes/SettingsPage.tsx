@@ -5,6 +5,7 @@ import TeamTab from '@/components/shared/TeamTab'
 import BillingTab from '@/components/shared/BillingTab'
 import CrewsTab from '@/components/shared/CrewsTab'
 import BookingTab from '@/components/shared/BookingTab'
+import IntegrationsTab from '@/components/shared/IntegrationsTab'
 import PageContainer from '@/components/shared/PageContainer'
 
 const cardStyle: React.CSSProperties = {
@@ -28,12 +29,14 @@ export default function SettingsPage(): JSX.Element {
               <TabsTrigger value="billing">Billing</TabsTrigger>
               <TabsTrigger value="crews">Crews</TabsTrigger>
               <TabsTrigger value="booking">Booking</TabsTrigger>
+              <TabsTrigger value="integrations">Integrations</TabsTrigger>
             </TabsList>
             <TabsContent value="company"><CompanyTab /></TabsContent>
             <TabsContent value="team"><TeamTab /></TabsContent>
             <TabsContent value="billing"><BillingTab /></TabsContent>
             <TabsContent value="crews"><CrewsTab /></TabsContent>
             <TabsContent value="booking"><BookingTab /></TabsContent>
+            <TabsContent value="integrations"><IntegrationsTab /></TabsContent>
           </Tabs>
         </div>
       </div>
