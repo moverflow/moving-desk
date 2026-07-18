@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs'
 import { Hono } from 'hono'
-import { setCookie } from 'hono/cookie'
+import { getCookie, setCookie } from 'hono/cookie'
+import type { Context } from 'hono'
 import { z } from 'zod'
 import { sendWelcomeEmail } from '../lib/email.js'
 import { signToken } from '../lib/jwt.js'
@@ -41,6 +42,16 @@ const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
 })
+
+// The token backing the current request — cookie first, Bearer header fallback
+// (iOS Safari). Used so /auth/me can re-hand the token back to the client.
+function getRequestToken(c: Context): string | null {
+  const cookie = getCookie(c, 'token')
+  if (cookie) return cookie
+  const authHeader = c.req.header('Authorization')
+  if (authHeader?.startsWith('Bearer ')) return authHeader.slice(7)
+  return null
+}
 
 const auth = new Hono<{ Variables: AppVariables }>()
 
@@ -100,6 +111,7 @@ auth.post('/register', async (c) => {
         plan: tenant.plan ?? 'trial',
         trialEndsAt: tenant.trial_ends_at!.toISOString(),
       },
+      token: jwt,
     },
     201
   )
@@ -174,6 +186,7 @@ auth.post('/login', async (c) => {
       name: row.tenantName,
       plan: row.plan ?? 'trial',
     },
+    token: jwt,
   })
 })
 
@@ -190,6 +203,7 @@ auth.get('/me', authMiddleware, async (c) => {
       crewName: data.userCrewName ?? null,
     },
     tenant: { id: data.tenantId, name: data.tenantName, plan: data.tenantPlan ?? 'trial' },
+    token: getRequestToken(c),
   })
 })
 

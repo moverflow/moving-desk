@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { User, Tenant } from '@/types'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, saveToken } from '@/lib/api'
 import { useAuthStore } from '@/store/auth.store'
 
 interface RegisterData {
@@ -24,6 +24,9 @@ interface JoinData {
 interface AuthResponse {
   user: User
   tenant: Tenant
+  // Present when the backend hands back the JWT for the iOS Safari localStorage
+  // fallback (login/register/join/me).
+  token?: string
 }
 
 export function useRegister() {
@@ -33,8 +36,8 @@ export function useRegister() {
         method: 'POST',
         body: JSON.stringify(data),
       }),
-    onSuccess: ({ user, tenant }) => {
-      useAuthStore.getState().setAuth(user, tenant)
+    onSuccess: ({ user, tenant, token }) => {
+      useAuthStore.getState().setAuth(user, tenant, token)
     },
   })
 }
@@ -46,8 +49,8 @@ export function useLogin() {
         method: 'POST',
         body: JSON.stringify(data),
       }),
-    onSuccess: ({ user, tenant }) => {
-      useAuthStore.getState().setAuth(user, tenant)
+    onSuccess: ({ user, tenant, token }) => {
+      useAuthStore.getState().setAuth(user, tenant, token)
     },
   })
 }
@@ -66,7 +69,13 @@ export function useLogout() {
 export function useMe() {
   return useQuery<AuthResponse>({
     queryKey: ['me'],
-    queryFn: () => apiFetch<AuthResponse>('/auth/me'),
+    // Refresh the stored fallback token on every successful /me. (queryFn
+    // side-effect rather than onSuccess, which useQuery dropped in v5.)
+    queryFn: async () => {
+      const data = await apiFetch<AuthResponse>('/auth/me')
+      if (data.token) saveToken(data.token)
+      return data
+    },
     retry: false,
   })
 }
@@ -78,8 +87,8 @@ export function useJoin() {
         method: 'POST',
         body: JSON.stringify(data),
       }),
-    onSuccess: ({ user, tenant }) => {
-      useAuthStore.getState().setAuth(user, tenant)
+    onSuccess: ({ user, tenant, token }) => {
+      useAuthStore.getState().setAuth(user, tenant, token)
     },
   })
 }
