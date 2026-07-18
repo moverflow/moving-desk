@@ -1,4 +1,4 @@
-const CACHE_NAME = 'crew-v1'
+const CACHE_NAME = 'crew-v2'
 const CACHE_URLS = ['/crew', '/crew/login']
 
 self.addEventListener('install', (e) => {
