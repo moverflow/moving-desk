@@ -134,6 +134,7 @@ usersRouter.post('/join', async (c) => {
         name: invite.tenantName,
         plan: invite.tenantPlan ?? 'trial',
       },
+      token: jwt,
     },
     201
   )

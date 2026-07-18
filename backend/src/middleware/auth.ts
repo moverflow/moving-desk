@@ -6,7 +6,16 @@ import { subscriptions } from '../db/schema.js'
 import { verifyToken } from '../lib/jwt.js'
 
 export const authMiddleware: MiddlewareHandler = async (c, next) => {
-  const token = getCookie(c, 'token')
+  // Primary: httpOnly cookie (secure, works everywhere except iOS Safari
+  // cross-domain). Fallback: Bearer token from localStorage, sent as an
+  // Authorization header — needed because iOS Safari ITP drops the cookie.
+  let token = getCookie(c, 'token')
+  if (!token) {
+    const authHeader = c.req.header('Authorization')
+    if (authHeader?.startsWith('Bearer ')) {
+      token = authHeader.slice(7)
+    }
+  }
   if (!token) return c.json({ error: 'Unauthorized' }, 401)
 
   try {
