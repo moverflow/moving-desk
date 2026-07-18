@@ -20,6 +20,8 @@ import ContractPage from '@/routes/ContractPage'
 import SettingsPage from '@/routes/SettingsPage'
 import CrewLoginPage from '@/routes/CrewLoginPage'
 import CrewHomePage from '@/routes/CrewHomePage'
+import HowItWorksPage from '@/routes/HowItWorksPage'
+import TestGuidePage from '@/routes/TestGuidePage'
 import { useAuthStore } from '@/store/auth.store'
 
 function DefaultRedirect(): JSX.Element {
@@ -38,6 +40,8 @@ export default function App(): JSX.Element {
       <Route path="/pay/success" element={<PaySuccessPage />} />
       <Route path="/book/:slug" element={<BookingPage />} />
       <Route path="/contract/:token" element={<ContractPage />} />
+      <Route path="/how-it-works" element={<HowItWorksPage />} />
+      <Route path="/test-guide" element={<TestGuidePage />} />
       <Route path="/crew/login" element={<CrewLoginPage />} />
       <Route element={<CrewProtectedRoute />}>
         <Route path="/crew" element={<CrewHomePage />} />
