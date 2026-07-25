@@ -2,7 +2,12 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { uploadLogo } from '../lib/r2.js'
 import { authMiddleware, requireOwner } from '../middleware/auth.js'
-import { getSettings, updateSettings } from '../services/settings.service.js'
+import {
+  DEFAULT_PACKING_FEE,
+  getSettings,
+  getTenantPricing,
+  updateSettings,
+} from '../services/settings.service.js'
 import type { AppVariables, TenantSettings } from '../types/index.js'
 
 const patchSettingsSchema = z.object({
@@ -10,6 +15,7 @@ const patchSettingsSchema = z.object({
   logoUrl: z.string().url().nullable().optional(),
   timezone: z.string().optional(),
   baseRates: z.record(z.string(), z.number().nonnegative()).optional(),
+  packingFee: z.number().nonnegative().optional(),
   phone: z.string().max(20).nullable().optional(),
   bookingEnabled: z.boolean().optional(),
   bookingDescription: z.string().max(300).nullable().optional(),
@@ -20,6 +26,13 @@ const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'i
 
 const settingsRouter = new Hono<{ Variables: AppVariables }>()
 
+// Pricing only, readable by any authenticated user — dispatchers create orders
+// but are not allowed the full owner-only settings payload below. These same
+// values are already public on GET /book/:slug, so this exposes nothing new.
+settingsRouter.get('/pricing', authMiddleware, async (c) => {
+  return c.json(await getTenantPricing(c.get('tenantId')))
+})
+
 settingsRouter.get('/', authMiddleware, requireOwner, async (c) => {
   const tenant = await getSettings(c.get('tenantId'))
   if (!tenant) return c.json({ error: 'Settings not found' }, 404)
@@ -29,6 +42,7 @@ settingsRouter.get('/', authMiddleware, requireOwner, async (c) => {
     logoUrl: tenant.logo_url,
     timezone: settings.timezone ?? 'America/New_York',
     baseRates: settings.baseRates ?? {},
+    packingFee: settings.packingFee ?? DEFAULT_PACKING_FEE,
     phone: settings.phone ?? null,
     slug: tenant.slug,
     bookingEnabled: tenant.booking_enabled,
@@ -53,6 +67,7 @@ settingsRouter.patch('/', authMiddleware, requireOwner, async (c) => {
     logo_url: d.logoUrl,
     timezone: d.timezone,
     baseRates: d.baseRates,
+    packingFee: d.packingFee,
     phone: d.phone,
     bookingEnabled: d.bookingEnabled,
     bookingDescription: d.bookingDescription,
@@ -66,6 +81,7 @@ settingsRouter.patch('/', authMiddleware, requireOwner, async (c) => {
     logoUrl: updated.logo_url,
     timezone: settings.timezone ?? 'America/New_York',
     baseRates: settings.baseRates ?? {},
+    packingFee: settings.packingFee ?? DEFAULT_PACKING_FEE,
     phone: settings.phone ?? null,
     slug: updated.slug,
     bookingEnabled: updated.booking_enabled,

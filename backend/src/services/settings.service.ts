@@ -9,6 +9,31 @@ const DEFAULT_SETTINGS: TenantSettings = {
   packingFee: 120,
 }
 
+export const DEFAULT_PACKING_FEE = DEFAULT_SETTINGS.packingFee
+
+export interface TenantPricing {
+  baseRates: TenantSettings['baseRates']
+  packingFee: number
+}
+
+// Single source of truth for what an order costs. Prices are whole US dollars,
+// never cents. Deliberately mirrors the public booking path
+// (booking.service.ts) so a move costs the same whether the dispatcher creates
+// the order or the client books it themselves.
+export async function getTenantPricing(tenantId: string): Promise<TenantPricing> {
+  const [tenant] = await db
+    .select({ settings: tenants.settings })
+    .from(tenants)
+    .where(eq(tenants.id, tenantId))
+    .limit(1)
+
+  const settings = (tenant?.settings ?? {}) as Partial<TenantSettings>
+  return {
+    baseRates: { ...DEFAULT_SETTINGS.baseRates, ...settings.baseRates },
+    packingFee: settings.packingFee ?? DEFAULT_SETTINGS.packingFee,
+  }
+}
+
 export async function getSettings(tenantId: string) {
   const [tenant] = await db
     .select({
@@ -32,6 +57,7 @@ export async function updateSettings(
     logo_url?: string | null
     timezone?: string
     baseRates?: Partial<TenantSettings['baseRates']>
+    packingFee?: number
     phone?: string | null
     bookingEnabled?: boolean
     bookingDescription?: string | null
@@ -49,10 +75,12 @@ export async function updateSettings(
   const settingsChanged =
     updates.timezone !== undefined ||
     updates.baseRates !== undefined ||
+    updates.packingFee !== undefined ||
     updates.phone !== undefined ||
     updates.contractTerms !== undefined
   if (updates.timezone !== undefined) merged.timezone = updates.timezone
   if (updates.baseRates !== undefined) merged.baseRates = { ...merged.baseRates, ...updates.baseRates }
+  if (updates.packingFee !== undefined) merged.packingFee = updates.packingFee
   if (updates.phone !== undefined) merged.phone = updates.phone ?? undefined
   if (updates.contractTerms !== undefined) {
     merged.contractTerms = updates.contractTerms?.trim() || undefined

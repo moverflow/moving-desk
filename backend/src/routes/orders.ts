@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { authMiddleware } from '../middleware/auth.js'
 import { sendContractForOrder } from '../services/contract.service.js'
+import { getTenantPricing } from '../services/settings.service.js'
 import { deleteOrderFile, resolveOrderFileUrl, uploadOrderFile } from '../lib/r2.js'
 import {
   countOrderFiles,
@@ -15,7 +16,6 @@ import {
   createOrder,
   findOrCreateClient,
   getOrderById,
-  getTenantBaseRates,
   isValidTransition,
   listOrders,
   sendOrderCompletedEmail,
@@ -23,7 +23,6 @@ import {
 } from '../services/orders.service.js'
 import type { AppVariables } from '../types/index.js'
 
-const PACKING_FEE = 12000 // $120 in cents
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024
 const ALLOWED_ORDER_FILE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])
 
@@ -85,9 +84,9 @@ ordersRouter.post('/', authMiddleware, async (c) => {
   const userId = c.get('userId')
 
   const clientId = await findOrCreateClient(tenantId, d.clientPhone, d.clientName, d.clientEmail)
-  const baseRates = await getTenantBaseRates(tenantId)
+  const { baseRates, packingFee } = await getTenantPricing(tenantId)
   const basePrice = baseRates[d.homeSize] ?? 0
-  const totalPrice = basePrice + (d.packing ? PACKING_FEE : 0)
+  const totalPrice = basePrice + (d.packing ? packingFee : 0)
 
   const order = await createOrder({
     tenantId, clientId, createdBy: userId, crewId: d.crewId,

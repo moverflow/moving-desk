@@ -14,14 +14,14 @@ import {
 
 export type TenantSettings = {
   timezone: string           // 'America/New_York' | 'America/Los_Angeles' | ...
-  baseRates: {               // цены в центах (480 = $4.80 — нет, у нас в долларах)
+  baseRates: {               // whole US dollars (480 = $480), never cents
     studio: number           // 280
     '1br': number            // 380
     '2br': number            // 480
     '3br': number            // 620
     house: number            // 850
   }
-  packingFee: number         // доп. стоимость упаковки, default 120
+  packingFee: number         // whole US dollars, default 120
   invoiceFooter?: string     // текст в подвале инвойса (опционально)
   phone?: string             // публичный телефон компании (для booking page / инвойсов)
   contractTerms?: string     // кастомные условия договора, max 2000 символов (для e-signature)
@@ -164,10 +164,10 @@ export const orders = pgTable('orders', {
   packing: boolean('packing').default(false),
   notes: text('notes'),
 
-  // Цены в центах — стандарт в финансовых системах
-  // $480.00 → 48000 cents
-  // Почему центы? Нет проблем с floating point: 0.1 + 0.2 = 0.30000000000000004
-  // При отображении: (total_price / 100).toFixed(2) → "480.00"
+  // Whole US dollars, NOT cents. $480 is stored as 480.
+  // tenant.settings.baseRates and settings.packingFee use the same unit, and
+  // Stripe conversion multiplies by 100 at the call site (invoices.service.ts).
+  // Mixing units here previously caused a 100x overcharge on packing.
   base_price: integer('base_price').notNull().default(0),
   total_price: integer('total_price').notNull().default(0),
 

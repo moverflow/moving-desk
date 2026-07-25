@@ -122,17 +122,6 @@ export async function findOrCreateClient(
   return created.id
 }
 
-export async function getTenantBaseRates(tenantId: string): Promise<Record<string, number>> {
-  const [tenant] = await db
-    .select({ settings: tenants.settings })
-    .from(tenants)
-    .where(eq(tenants.id, tenantId))
-    .limit(1)
-  if (!tenant?.settings) return {}
-  const settings = tenant.settings as Partial<TenantSettings>
-  return settings.baseRates ?? {}
-}
-
 export async function createOrder(params: {
   tenantId: string
   clientId: string

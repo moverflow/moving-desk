@@ -13,10 +13,18 @@ const RATE_ROWS: { key: string; label: string }[] = [
 interface BaseRatesFieldsProps {
   rates: Record<string, number>
   onChange: (key: string, value: number) => void
+  packingFee: number
+  onPackingFeeChange: (value: number) => void
   disabled: boolean
 }
 
-export default function BaseRatesFields({ rates, onChange, disabled }: BaseRatesFieldsProps): JSX.Element {
+export default function BaseRatesFields({
+  rates,
+  onChange,
+  packingFee,
+  onPackingFeeChange,
+  disabled,
+}: BaseRatesFieldsProps): JSX.Element {
   return (
     <div className="space-y-2">
       <Label>Base rates</Label>
@@ -37,6 +45,21 @@ export default function BaseRatesFields({ rates, onChange, disabled }: BaseRates
             </div>
           </div>
         ))}
+        <div className="space-y-1">
+          <Label htmlFor="packingFee" className="text-xs text-gray-500">Packing service</Label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+            <Input
+              id="packingFee"
+              type="number"
+              min={0}
+              value={packingFee}
+              onChange={(e) => onPackingFeeChange(parseInt(e.target.value, 10) || 0)}
+              disabled={disabled}
+              className="pl-6"
+            />
+          </div>
+        </div>
       </div>
     </div>
   )
