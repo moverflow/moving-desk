@@ -71,6 +71,13 @@
       "when": 1784321405886,
       "tag": "0009_fast_jetstream",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1785002634479,
+      "tag": "0010_jazzy_gideon",
+      "breakpoints": true
     }
   ]
 }

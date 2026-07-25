@@ -335,3 +335,20 @@ export interface CreateOrderData {
   packing: boolean
   notes?: string
 }
+
+export type NotificationType = 'lead_new' | 'contract_signed' | 'invoice_paid' | 'move_reminder'
+
+export type NotificationRelatedType = 'order' | 'invoice' | 'lead'
+
+// Named AppNotification because `Notification` is a DOM global — an exported
+// interface with that name would shadow it wherever this module is imported.
+export interface AppNotification {
+  id: string
+  type: NotificationType
+  title: string
+  body: string | null
+  relatedType: NotificationRelatedType | null
+  relatedId: string | null
+  readAt: string | null
+  createdAt: string
+}

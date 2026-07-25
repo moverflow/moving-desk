@@ -33,7 +33,12 @@ vi.mock('../db/index.js', () => ({
   },
 }))
 
-const { convertLeadToOrder } = await import('./leads.service.js')
+const createNotificationMock = vi.fn()
+vi.mock('./notifications.service.js', () => ({
+  createNotification: (...a: unknown[]) => createNotificationMock(...a),
+}))
+
+const { convertLeadToOrder, createLead } = await import('./leads.service.js')
 
 const TENANT_A = '11111111-1111-1111-1111-111111111111'
 const USER_A = '22222222-2222-2222-2222-222222222222'
@@ -60,6 +65,59 @@ beforeEach(() => {
   insertReturnQueue.length = 0
   insertValues.length = 0
   updateSets.length = 0
+  createNotificationMock.mockReset()
+  createNotificationMock.mockResolvedValue(undefined)
+})
+
+// Every lead entry point — the public booking page, the Zapier webhook and
+// manual entry — goes through createLead, so this is the one place the in-app
+// notification has to be raised.
+describe('createLead — in-app notification', () => {
+  it('AC1 — raises a tenant-scoped notification pointing at the new lead', async () => {
+    insertReturnQueue.push([{ id: 'lead-9', name: 'Rick Adams', phone: '9496329557' }])
+
+    await createLead(TENANT_A, null, { name: 'Rick Adams', phone: '9496329557', source: 'booking_page' })
+
+    expect(createNotificationMock).toHaveBeenCalledWith({
+      tenantId: TENANT_A,
+      type: 'lead_new',
+      title: 'New lead: Rick Adams',
+      body: '(949) 632-9557 · Added from the booking page',
+      relatedType: 'lead',
+      relatedId: 'lead-9',
+    })
+  })
+
+  it('AC1 — notifies for a Zapier webhook lead too', async () => {
+    insertReturnQueue.push([{ id: 'lead-10', name: 'Dana', phone: null }])
+
+    await createLead(TENANT_A, null, { name: 'Dana', source: 'zapier' })
+
+    expect(createNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'lead_new', body: 'Added via Zapier', relatedId: 'lead-10' }),
+    )
+  })
+
+  it('leaves a phone that is not a US 10-digit number untouched', async () => {
+    insertReturnQueue.push([{ id: 'lead-12', name: 'Dana', phone: '+44 20 7946 0958' }])
+
+    await createLead(TENANT_A, null, { name: 'Dana', phone: '+44 20 7946 0958' })
+
+    expect(createNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({ body: '+44 20 7946 0958 · Added manually' }),
+    )
+  })
+
+  it('labels a manually entered lead and still returns it to the caller', async () => {
+    insertReturnQueue.push([{ id: 'lead-11', name: 'Dana', phone: null }])
+
+    const lead = await createLead(TENANT_A, USER_A, { name: 'Dana' })
+
+    expect(lead).toMatchObject({ id: 'lead-11' })
+    expect(createNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({ body: 'Added manually' }),
+    )
+  })
 })
 
 describe('convertLeadToOrder', () => {

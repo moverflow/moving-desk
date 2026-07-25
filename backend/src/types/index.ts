@@ -14,6 +14,10 @@ export type LeadStatus = 'new' | 'contacted' | 'quoted' | 'booked' | 'lost'
 
 export type LeadSource = 'manual' | 'booking_page' | 'zapier' | 'phone'
 
+export type NotificationType = 'lead_new' | 'contract_signed' | 'invoice_paid' | 'move_reminder'
+
+export type NotificationRelatedType = 'order' | 'invoice' | 'lead'
+
 export type { TenantSettings } from '../db/schema.js'
 
 export type AppVariables = {

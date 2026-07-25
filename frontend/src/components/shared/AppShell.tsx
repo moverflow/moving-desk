@@ -3,6 +3,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { CalendarDays, Kanban, LayoutDashboard, Plus, Receipt, Users, Settings as SettingsIcon, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth.store'
+import NotificationBell from '@/components/shared/NotificationBell'
 import TrialBanner from '@/components/shared/TrialBanner'
 import UserMenu from '@/components/shared/UserMenu'
 
@@ -57,7 +58,10 @@ export default function AppShell(): JSX.Element {
           {NAV_ITEMS.map((item) => <NavTab key={item.to} {...item} />)}
           {user?.role === 'owner' && <NavTab to="/settings" label="Settings" Icon={SettingsIcon} />}
         </nav>
-        <UserMenu />
+        <div className="flex items-center gap-1.5">
+          <NotificationBell />
+          <UserMenu />
+        </div>
       </header>
       <TrialBanner />
       <main className="flex-1">

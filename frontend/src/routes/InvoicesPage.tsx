@@ -1,5 +1,6 @@
 import type { JSX } from 'react'
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import InvoiceListItem from '@/components/shared/InvoiceListItem'
@@ -16,7 +17,16 @@ export default function InvoicesPage(): JSX.Element {
   const [selectedOrderId, setSelectedOrderId] = useState('')
   const [error, setError] = useState<string | null>(null)
   const { mutate: generate, isPending: isGenerating } = useGenerateInvoice()
+  const [searchParams] = useSearchParams()
   const selected = invoices.find((i) => i.id === selectedId) ?? invoices[0] ?? null
+
+  // ?invoice=<id> deep link from a notification. Only selects an invoice this
+  // tenant actually has — an unknown id falls back to the default selection.
+  const invoiceParam = searchParams.get('invoice')
+  useEffect(() => {
+    if (!invoiceParam) return
+    if (invoices.some((i) => i.id === invoiceParam)) setSelectedId(invoiceParam)
+  }, [invoiceParam, invoices])
 
   const invoicedOrderIds = useMemo(() => new Set(invoices.map((i) => i.orderId)), [invoices])
 

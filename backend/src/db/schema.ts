@@ -365,6 +365,45 @@ export const leads = pgTable('leads', {
   tenantStatusIdx: index('leads_tenant_status_idx').on(table.tenant_id, table.status),
 }))
 
+// ─── NOTIFICATIONS ────────────────────────────────────────────────────────────
+// In-app notification centre. A parallel channel to email, not a replacement:
+// email delivery depends on a verified sending domain, this does not.
+export const notifications = pgTable('notifications', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenant_id: uuid('tenant_id').notNull().references(() => tenants.id),
+
+  type: varchar('type', { length: 40 })
+    .$type<'lead_new' | 'contract_signed' | 'invoice_paid' | 'move_reminder'>()
+    .notNull(),
+
+  title: varchar('title', { length: 255 }).notNull(),
+  body: text('body'),
+
+  // Polymorphic pointer to the record this is about — kept as a type + id pair
+  // rather than one opaque string so the frontend can build the route without
+  // parsing. No FK: the target lives in one of three different tables.
+  related_type: varchar('related_type', { length: 20 })
+    .$type<'order' | 'invoice' | 'lead'>(),
+  related_id: uuid('related_id'),
+
+  read_at: timestamp('read_at'),
+  created_at: timestamp('created_at').defaultNow(),
+},
+(table) => ({
+  // GET /notifications: WHERE tenant_id = ? ORDER BY created_at DESC
+  tenantCreatedIdx: index('notifications_tenant_created_idx')
+    .on(table.tenant_id, table.created_at),
+
+  // Unread badge count: WHERE tenant_id = ? AND read_at IS NULL
+  tenantReadAtIdx: index('notifications_tenant_read_at_idx')
+    .on(table.tenant_id, table.read_at),
+
+  // Dedupe lookup for the reminder job, which cannot rely on orders.reminder_sent
+  // (that flag is only set after a successful email send).
+  tenantRelatedIdx: index('notifications_tenant_related_idx')
+    .on(table.tenant_id, table.type, table.related_id),
+}))
+
 // ─── ЭКСПОРТ ТИПОВ ────────────────────────────────────────────────────────────
 // Drizzle умеет автоматически генерировать TypeScript типы из схемы
 // Используй их вместо ручного написания интерфейсов
@@ -395,3 +434,6 @@ export type NewOrderFile = typeof orderFiles.$inferInsert
 
 export type Lead = typeof leads.$inferSelect
 export type NewLead = typeof leads.$inferInsert
+
+export type Notification = typeof notifications.$inferSelect
+export type NewNotification = typeof notifications.$inferInsert

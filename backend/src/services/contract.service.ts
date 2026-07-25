@@ -5,6 +5,7 @@ import { clients, orderFiles, orders, tenants, users } from '../db/schema.js'
 import { env } from '../lib/env.js'
 import { sendContractEmail, sendContractSignedNotification } from '../lib/email.js'
 import { uploadBinary } from '../lib/r2.js'
+import { createNotification } from './notifications.service.js'
 import type { TenantSettings } from '../types/index.js'
 
 const HOME_SIZE_LABELS: Record<string, string> = {
@@ -240,14 +241,24 @@ export async function signContract(
     .where(
       and(eq(users.tenant_id, order.tenant_id), eq(users.role, 'owner'), isNull(users.deleted_at)),
     )
+  const clientName = order.clientName ?? 'A client'
   for (const owner of owners) {
     sendContractSignedNotification({
       to: owner.email,
-      clientName: order.clientName ?? 'A client',
+      clientName,
       moveDate: formatMoveDate(order.move_date),
       orderUrl: `${env.FRONTEND_URL}/orders?order=${order.id}`,
     })
   }
+
+  await createNotification({
+    tenantId: order.tenant_id,
+    type: 'contract_signed',
+    title: `Contract signed by ${clientName}`,
+    body: `Move on ${formatMoveDate(order.move_date)}`,
+    relatedType: 'order',
+    relatedId: order.id,
+  })
 
   return { status: 'signed', orderId: order.id, tenantId: order.tenant_id }
 }
