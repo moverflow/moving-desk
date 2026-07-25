@@ -582,3 +582,158 @@ accidentally target the wrong tenant.
   slug-only create is `owner@<slug>.demo.local` (never sent to, script-only).
 
 ---
+
+## audit/12-payment-handling — Analysis (2026-07-25)
+
+### What is being built
+Six correctness fixes to Stripe payment/billing handling, grouped since they all touch
+`billing.service.ts` / `invoices.service.ts` / the webhook route:
+- S1: handle `async_payment_succeeded/failed`, `checkout.session.expired`,
+  `charge.refunded`, `charge.dispute.created` (currently unhandled — fall through the
+  switch as silent no-ops); flag (log, still record) an `amount_total` vs `total_price`
+  mismatch instead of accepting it silently.
+- S2: `PaySuccessPage` polls actual invoice status instead of unconditionally showing
+  success; drop the dead `window.close()` button.
+- S3: new `stripe_events` ledger — persist processed event ids (idempotency) and ignore
+  events older than the last one already applied per customer (ordering), so an
+  out-of-order `customer.subscription.updated` can't regress `active` back to
+  `past_due`.
+- S4: null-check `customer` on `invoice.payment_failed` instead of a `!` assertion that
+  throws → infinite Stripe retry.
+- S5: hard-fail missing `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` in production
+  (mirrors the existing `assertStorageConfigured()` R2 pattern); log instead of silently
+  defaulting to `'basic'` in `getPlanFromPriceId` on an unrecognized price id.
+- S6: unique index on `invoices(tenant_id, number)` + retry-on-conflict in
+  `generateInvoice`, replacing the bare `count(*)+1001` race.
+
+### Who uses it
+Internal billing pipeline (Stripe webhooks, cron-free) plus the public,
+unauthenticated `/pay/success` and `/i/:token` client-facing pages. No new
+owner/dispatcher-facing UI.
+
+### DB tables touched
+New `stripe_events` table (S3). `invoices` — new unique index `(tenant_id, number)`
+(S6), status gains `'refunded'`/`'disputed'` values (TS-only `$type` widening, no DDL —
+column is already a bare `varchar(20)`, not a Postgres enum). `notifications.type` gains
+`'invoice_refunded'`/`'invoice_disputed'` (same, TS-only). `subscriptions` — read/write
+unchanged, just gated by the new ordering check.
+
+### Tenant isolation
+Webhook handling is inherently trusted/tenant-agnostic context (same posture as the
+existing `markInvoicePaidFromSession` comment: "Trusted context: verified webhook, no
+tenant") — tenant is resolved downstream via `stripe_customer_id`/`payment_intent_id`
+joins, unchanged pattern. `stripe_events` has no `tenant_id` (Stripe events aren't
+tenant-scoped at the API level); ordering key is Stripe's own `customer_id`.
+
+### Acceptance criteria (verbatim, condensed)
+1. Async payment, refund, dispute events each produce correct invoice status.
+2. `PaySuccessPage` reflects actual status.
+3. Out-of-order webhook delivery doesn't regress subscription status.
+4. `invoice.payment_failed` with null customer doesn't throw.
+5. Missing Stripe env vars fail startup in production.
+6. Concurrent invoice creation can't produce duplicate numbers — with a test proving it.
+
+### Key implementation decisions
+- Reuse the existing `getPaidInvoiceEmailData` join (already pulls `orders`) to also
+  select `total_price`, instead of adding a second query, for the mismatch check — keeps
+  `markInvoicePaidFromSession`'s query shape unchanged.
+- `success_url` in `createInvoicePaymentLink` gains `&token=${shareToken}` — without it,
+  `PaySuccessPage` has no way to know which invoice to poll (today only `session_id` is
+  passed, which the frontend never had a use for).
+- `isUniqueViolation` (Postgres code `23505`) already exists as a local helper in
+  `clients.service.ts` — duplicating the same 6-line helper into `invoices.service.ts`
+  rather than extracting a shared lib, matching the existing non-shared precedent.
+- S6's "test that fires concurrent requests" can't be meaningfully faked — needs a real
+  Postgres instance (same skip-if-unreachable convention as `dashboard.service.test.ts`).
+  Same for the new `stripe-events` ordering ledger (MAX(created) query).
+
+### Risks
+- R1: refund/dispute events carry `charge.payment_intent`, not an invoice id directly —
+  matching back to our `invoices` row is via `stripe_payment_intent_id`, which is only
+  set once payment succeeds; a refund/dispute on a payment_intent we never recorded
+  (shouldn't happen, but defensively) must no-op rather than throw.
+- R2: the new "ignore older events" check must not apply to `checkout.session.*` events
+  (invoice-status-affecting, not subscription-status-affecting) — only to the four event
+  types that write `subscriptions.status`, or a legitimately-late invoice webhook could
+  get dropped.
+
+## audit/12-payment-handling — DONE (2026-08-01) — PR pending
+
+- Branch: fix/payment-handling (pushed; PR not opened — `gh` token invalid, same
+  keyring issue as audit/10 and audit/11)
+- S1: `handleCheckoutCompleted` now branches on `payment_status` instead of
+  early-returning; new `checkout.session.async_payment_succeeded` (→ same paid path),
+  `checkout.session.async_payment_failed`/`.expired` (→ clears the stale
+  `stripe_checkout_session_id`, invoice stays `sent` so the same share link still
+  works), `charge.refunded`/`charge.dispute.created` (→ new `invoices.status`
+  values `'refunded'`/`'disputed'`, looked up by `stripe_payment_intent_id`).
+  `markInvoicePaidFromSession` now compares `amount_total` against the order's
+  `total_price`; a mismatch is `logger.error`'d and the notification title is
+  prefixed `⚠️` — still marks paid, since the money did move.
+- S2: `PaySuccessPage` now reads `?token=` (added to `success_url` — it only ever
+  had `session_id`, which nothing read) and polls `GET /invoices/share/:token` via
+  `usePublicInvoice(token, { pollUntilResolved: true })` until status leaves
+  `'sent'`. Dead `window.close()` button removed.
+- S3: new `stripe_events` table + `stripe-events.service.ts` (`claimStripeEvent`) —
+  dedupes by event id (any type) and additionally rejects an event as `'stale'` if
+  it's an older `customer.subscription.created/updated/deleted` or
+  `invoice.payment_failed` than the last one already applied for that Stripe
+  customer. Ordering is scoped to that 4-type set only — checkout/charge events for
+  the same customer are never treated as stale.
+- S4: `invoice.payment_failed`'s `customer!` non-null assertion replaced with a
+  null-check + `logger.warn` no-op.
+- S5: `lib/stripe.ts` gained `assertStripeConfigured()`, exact mirror of
+  `assertStorageConfigured()` in `r2.ts` — hard-fails at startup in production if
+  `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` are unset; wired into `index.ts`
+  alongside the R2 check. `getPlanFromPriceId` now `logger.error`s the unmatched
+  `priceId` before defaulting to `'basic'`.
+- S6: rejected the originally-implemented retry-on-23505-conflict approach after
+  writing a concurrency test that fires 10 (then 40, to stress it) truly-parallel
+  `generateInvoice()` calls for one tenant — it still produced duplicate numbers
+  under load, because multiple losing retries can recompute the identical
+  `count(*)+attempt` candidate before any of them commits. Replaced with a
+  dedicated `invoice_counters` table (`tenant_id` PK, `last_number`) and a single
+  `INSERT ... ON CONFLICT (tenant_id) DO UPDATE SET last_number = last_number + 1
+  RETURNING last_number` — Postgres serializes concurrent upserts on the same row
+  via a row lock, so no count-read race is possible regardless of concurrency. The
+  counter seeds itself from the tenant's current `count(*)` on first use (via
+  `onConflictDoNothing`) so a tenant with invoices already in the table (e.g. from
+  the demo seed script, task 11) can't collide with a fresh counter starting at
+  1001. `invoices_tenant_number_idx` unique index kept as a defense-in-depth
+  backstop, no longer load-bearing for correctness.
+- Tests: backend 324 passed / 28 skipped (7 pre-existing dashboard + 7 new
+  stripe-events + 3 new invoices-concurrency + 11 pre-existing seed-analytics, all
+  Postgres-gated); frontend 206 passed. New files: `lib/stripe.test.ts` (7),
+  `services/stripe-events.service.test.ts` (7, real Postgres),
+  `services/invoices.concurrency.test.ts` (3, real Postgres — includes the 10-way
+  concurrent uniqueness proof), `routes/../routes/PaySuccessPage.test.tsx` (6,
+  frontend). Extended `billing.service.test.ts` (17, was 5) and
+  `invoices.service.test.ts` (9, was 4). Validated all four real-Postgres-gated
+  files against a live throwaway local Postgres, both individually and the full
+  matrix.
+- Review cycles: 1 (self-review against `.claude/agents/reviewer.md`) — found and
+  fixed 4 functions over the 40-line CLAUDE.md limit in `billing.service.ts`/
+  `invoices.service.ts` (extracted `notifyInvoicePaid`, split
+  `dispatchWebhookEvent` into `dispatchCheckoutOrChargeEvent`/
+  `dispatchSubscriptionEvent`, extracted `connectDb`), and 2 in the frontend
+  (`PaySuccessPage` extracted to a data-table + `resolveOutcome`,
+  `PublicInvoiceContent` split into new `InvoiceHeader`/`InvoicePaymentStatus`).
+  No `any`, no `console.log`, no missing tenant scoping introduced (webhook-driven
+  functions stay in the pre-existing "trusted context, no tenant" posture, matching
+  the comment already on `markInvoicePaidFromSession` from before this task).
+- Incidental fix: found and fixed a **pre-existing** test-isolation gap while
+  validating the full real-Postgres matrix together — `dashboard.service.test.ts`
+  and `scripts/seed-analytics.test.ts`'s `beforeEach` cleanup predated `invoices`/
+  the new `invoice_counters` table and didn't delete them, so leftover rows from
+  one real-Postgres test file running before another (sharing one persistent local
+  DB) could break the next file's own cleanup via FK violations. Added the missing
+  deletes to both. A second-order version of the same gap (unscoped deletes
+  clobbering a *different* file's still-referenced rows) was identified but left
+  alone — CI never runs any of these four files together against a persistent DB
+  (all skip when unreachable), and fully scoping every real-Postgres test file's
+  cleanup by tenant id is a larger test-infra change out of this task's scope.
+- Deviations: `success_url` gained a query param (`&token=`) that wasn't explicitly
+  asked for — required for S2 to be implementable at all, since `PaySuccessPage`
+  had no way to identify which invoice to poll otherwise.
+
+---

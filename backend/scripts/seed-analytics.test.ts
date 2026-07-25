@@ -15,7 +15,7 @@ const { drizzle } = await import('drizzle-orm/node-postgres')
 const schemaModule = await import('../src/db/schema.js')
 const pool = new Pool({ connectionString: TEST_DATABASE_URL })
 const db = drizzle(pool, { schema: schemaModule })
-const { tenants, users, subscriptions, crews, clients, leads, invoices, orders } = schemaModule
+const { tenants, users, subscriptions, crews, clients, leads, invoices, invoiceCounters, orders } = schemaModule
 
 const {
   slugify,
@@ -56,6 +56,11 @@ describe('slugify / titleCaseFromSlug (pure)', () => {
 describe.skipIf(!dbAvailable)('seed-analytics (real Postgres)', () => {
   beforeEach(async () => {
     await db.delete(invoices)
+    // invoiceCounters isn't touched by anything in this file, but it FKs to
+    // tenants — a leftover row from another real-Postgres test file sharing this
+    // same local DB (e.g. invoices.concurrency.test.ts) would otherwise break the
+    // delete(tenants) below.
+    await db.delete(invoiceCounters)
     await db.delete(orders)
     await db.delete(leads)
     await db.delete(clients)

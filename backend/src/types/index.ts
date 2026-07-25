@@ -4,7 +4,7 @@ export type Plan = 'trial' | 'basic' | 'pro'
 
 export type OrderStatus = 'new' | 'confirmed' | 'in_progress' | 'completed' | 'closed' | 'cancelled'
 
-export type InvoiceStatus = 'draft' | 'sent' | 'paid'
+export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'refunded' | 'disputed'
 
 export type SubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'cancelled'
 
@@ -14,7 +14,13 @@ export type LeadStatus = 'new' | 'contacted' | 'quoted' | 'booked' | 'lost'
 
 export type LeadSource = 'manual' | 'booking_page' | 'zapier' | 'phone'
 
-export type NotificationType = 'lead_new' | 'contract_signed' | 'invoice_paid' | 'move_reminder'
+export type NotificationType =
+  | 'lead_new'
+  | 'contract_signed'
+  | 'invoice_paid'
+  | 'invoice_refunded'
+  | 'invoice_disputed'
+  | 'move_reminder'
 
 export type NotificationRelatedType = 'order' | 'invoice' | 'lead'
 

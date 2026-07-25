@@ -7,11 +7,21 @@ import { env } from '../lib/env.js'
 import { logger } from '../lib/logger.js'
 import { stripe } from '../lib/stripe.js'
 import type { Plan, SubscriptionStatus } from '../types/index.js'
-import { markInvoicePaidFromSession } from './invoices.service.js'
+import {
+  clearInvoiceCheckoutSession,
+  markInvoiceDisputed,
+  markInvoicePaidFromSession,
+  markInvoiceRefunded,
+} from './invoices.service.js'
+import { claimStripeEvent } from './stripe-events.service.js'
 
 function getPlanFromPriceId(priceId: string): Plan {
   if (priceId === env.STRIPE_BASIC_PRICE_ID) return 'basic'
   if (priceId === env.STRIPE_PRO_PRICE_ID) return 'pro'
+  // Either a live-mode price id hit a test-mode env var (or vice versa) or a plan
+  // was added in Stripe without updating the env vars — either way, silently
+  // defaulting here previously downgraded a Pro customer to Basic with no trace.
+  logger.error({ priceId }, 'Stripe price id matches neither configured plan — defaulting to basic')
   return 'basic'
 }
 
@@ -31,6 +41,19 @@ function mapStripeStatus(status: Stripe.Subscription.Status): SubscriptionStatus
 
 function toCustomerId(customer: string | Stripe.Customer | Stripe.DeletedCustomer): string {
   return typeof customer === 'string' ? customer : customer.id
+}
+
+// Several event object shapes (Subscription, Invoice, Checkout.Session, Charge) all
+// carry an optional `customer` field of the same union type — used both for the
+// ordering ledger (claimStripeEvent) and for S4's null-check on invoice.payment_failed.
+function extractCustomerId(event: Stripe.Event): string | null {
+  const obj = event.data.object as { customer?: string | Stripe.Customer | Stripe.DeletedCustomer | null }
+  return obj.customer ? toCustomerId(obj.customer) : null
+}
+
+function toId(value: string | { id: string } | null | undefined): string | null {
+  if (!value) return null
+  return typeof value === 'string' ? value : value.id
 }
 
 export async function getSubscription(tenantId: string) {
@@ -103,20 +126,16 @@ async function handleSubscriptionUpsert(sub: Stripe.Subscription) {
   }
 }
 
-async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promise<void> {
-  if (session.payment_status !== 'paid') return
-
+// checkout.session.completed / async_payment_succeeded both mean the payment
+// actually landed — the only difference is whether it was confirmed synchronously
+// or (for delayed methods like ACH) some time later.
+async function handleCheckoutPaid(session: Stripe.Checkout.Session): Promise<void> {
   const invoiceId = session.metadata?.invoiceId
   if (!invoiceId) return // subscription checkout — handled via subscription.* events
 
-  const paymentIntentId =
-    typeof session.payment_intent === 'string'
-      ? session.payment_intent
-      : (session.payment_intent?.id ?? null)
-
   const paid = await markInvoicePaidFromSession({
     invoiceId,
-    paymentIntentId,
+    paymentIntentId: toId(session.payment_intent),
     amountTotal: session.amount_total,
   })
 
@@ -136,33 +155,106 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
   logger.info({ invoiceId, amount: paid.amount }, 'Invoice paid via Stripe checkout')
 }
 
-export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
+async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promise<void> {
+  if (session.payment_status === 'paid') {
+    await handleCheckoutPaid(session)
+    return
+  }
+  // 'unpaid' here means a delayed payment method (e.g. ACH) is still pending —
+  // wait for async_payment_succeeded/failed instead of treating this as terminal.
+  logger.info({ sessionId: session.id }, 'Checkout completed with a pending async payment')
+}
+
+// async_payment_failed / expired: the customer never paid. The invoice stays
+// 'sent' so the same share link still works — only the stale session id is
+// cleared so a fresh payment-link request isn't confused with the dead one.
+async function handleCheckoutNotPaid(session: Stripe.Checkout.Session, reason: string): Promise<void> {
+  const invoiceId = session.metadata?.invoiceId
+  if (!invoiceId) return
+  logger.warn({ invoiceId, sessionId: session.id, reason }, 'Checkout session did not result in payment')
+  await clearInvoiceCheckoutSession(invoiceId)
+}
+
+// Returns true if it recognized and handled the event, so the caller knows whether
+// to try the other dispatch table.
+async function dispatchCheckoutOrChargeEvent(event: Stripe.Event): Promise<boolean> {
   switch (event.type) {
     case 'checkout.session.completed':
       await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session)
-      break
+      return true
 
+    case 'checkout.session.async_payment_succeeded':
+      await handleCheckoutPaid(event.data.object as Stripe.Checkout.Session)
+      return true
+
+    case 'checkout.session.async_payment_failed':
+      await handleCheckoutNotPaid(event.data.object as Stripe.Checkout.Session, 'async_payment_failed')
+      return true
+
+    case 'checkout.session.expired':
+      await handleCheckoutNotPaid(event.data.object as Stripe.Checkout.Session, 'expired')
+      return true
+
+    case 'charge.refunded': {
+      const paymentIntentId = toId((event.data.object as Stripe.Charge).payment_intent)
+      if (paymentIntentId) await markInvoiceRefunded(paymentIntentId)
+      return true
+    }
+
+    case 'charge.dispute.created': {
+      const paymentIntentId = toId((event.data.object as Stripe.Dispute).payment_intent)
+      if (paymentIntentId) await markInvoiceDisputed(paymentIntentId)
+      return true
+    }
+
+    default:
+      return false
+  }
+}
+
+async function handleInvoicePaymentFailed(event: Stripe.Event): Promise<void> {
+  // customer can be null on some invoice objects (e.g. one-off, customer-less
+  // invoices) — asserting it non-null here used to throw, and Stripe retries a
+  // 500 for 3 days.
+  const customerId = extractCustomerId(event)
+  if (!customerId) {
+    logger.warn({ eventId: event.id }, 'invoice.payment_failed with no customer — skipping')
+    return
+  }
+  await db.update(subscriptions).set({ status: 'past_due' }).where(eq(subscriptions.stripe_customer_id, customerId))
+}
+
+async function dispatchSubscriptionEvent(event: Stripe.Event): Promise<boolean> {
+  switch (event.type) {
     case 'customer.subscription.created':
     case 'customer.subscription.updated':
       await handleSubscriptionUpsert(event.data.object as Stripe.Subscription)
-      break
+      return true
 
     case 'customer.subscription.deleted': {
       const customerId = toCustomerId((event.data.object as Stripe.Subscription).customer)
-      await db
-        .update(subscriptions)
-        .set({ status: 'cancelled' })
-        .where(eq(subscriptions.stripe_customer_id, customerId))
-      break
+      await db.update(subscriptions).set({ status: 'cancelled' }).where(eq(subscriptions.stripe_customer_id, customerId))
+      return true
     }
 
-    case 'invoice.payment_failed': {
-      const customerId = toCustomerId((event.data.object as Stripe.Invoice).customer!)
-      await db
-        .update(subscriptions)
-        .set({ status: 'past_due' })
-        .where(eq(subscriptions.stripe_customer_id, customerId))
-      break
-    }
+    case 'invoice.payment_failed':
+      await handleInvoicePaymentFailed(event)
+      return true
+
+    default:
+      return false
   }
+}
+
+export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
+  const claim = await claimStripeEvent({
+    id: event.id,
+    type: event.type,
+    created: new Date(event.created * 1000),
+    customerId: extractCustomerId(event),
+  })
+  if (claim !== 'process') return
+
+  if (await dispatchCheckoutOrChargeEvent(event)) return
+  await dispatchSubscriptionEvent(event)
 }
