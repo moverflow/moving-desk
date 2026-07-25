@@ -31,6 +31,11 @@ vi.mock('../db/index.js', () => ({
   db: { select: vi.fn(), insert: vi.fn(), update: vi.fn(), transaction: vi.fn() },
 }))
 
+vi.mock('../services/auth.service.js', async () => {
+  const { getAuthContextMock } = await import('../test/authContext.js')
+  return { getAuthContext: getAuthContextMock }
+})
+
 const getSummaryMock = vi.fn()
 const getOrdersByStatusMock = vi.fn()
 const getOrdersByWeekMock = vi.fn()
@@ -45,12 +50,14 @@ vi.mock('../services/dashboard.service.js', () => ({
 
 const { default: dashboardRouter } = await import('./dashboard.js')
 const { signToken } = await import('../lib/jwt.js')
+const { setAuthContext } = await import('../test/authContext.js')
 
 const app = new Hono<{ Variables: AppVariables }>().route('/dashboard', dashboardRouter)
 
 const TENANT_A = '11111111-1111-1111-1111-111111111111'
 
 async function authCookie(role: 'owner' | 'dispatcher' = 'owner', tenantId = TENANT_A): Promise<string> {
+  setAuthContext({ userId: 'user-1', tenantId, role, plan: 'trial', crewId: null })
   const token = await signToken({ sub: 'user-1', tenantId, role, plan: 'trial' })
   return `token=${token}`
 }

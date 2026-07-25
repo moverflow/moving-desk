@@ -19,6 +19,11 @@ vi.mock('../db/index.js', () => ({
   db: { select: vi.fn(), insert: vi.fn(), update: vi.fn() },
 }))
 
+vi.mock('../services/auth.service.js', async () => {
+  const { getAuthContextMock } = await import('../test/authContext.js')
+  return { getAuthContext: getAuthContextMock }
+})
+
 const getCrewJobsMock = vi.fn()
 const getCrewJobMock = vi.fn()
 const setCrewJobStatusMock = vi.fn()
@@ -44,6 +49,7 @@ vi.mock('../lib/r2.js', () => ({
 
 const { default: crewRouter } = await import('./crew.js')
 const { signToken } = await import('../lib/jwt.js')
+const { setAuthContext } = await import('../test/authContext.js')
 
 const app = new Hono<{ Variables: AppVariables }>().route('/crew', crewRouter)
 
@@ -52,11 +58,13 @@ const CREW_A = '22222222-2222-2222-2222-222222222222'
 const ORDER_ID = '33333333-3333-3333-3333-333333333333'
 
 async function crewCookie(crewId: string | undefined = CREW_A): Promise<string> {
+  setAuthContext({ userId: 'user-1', tenantId: TENANT_A, role: 'crew', plan: 'basic', crewId: crewId ?? null })
   const token = await signToken({ sub: 'user-1', tenantId: TENANT_A, role: 'crew', plan: 'basic', crewId })
   return `token=${token}`
 }
 
 async function roleCookie(role: 'owner' | 'dispatcher'): Promise<string> {
+  setAuthContext({ userId: 'user-1', tenantId: TENANT_A, role, plan: 'basic', crewId: null })
   const token = await signToken({ sub: 'user-1', tenantId: TENANT_A, role, plan: 'basic' })
   return `token=${token}`
 }
@@ -100,6 +108,7 @@ describe('GET /crew/jobs', () => {
   })
 
   it('returns empty jobs when the crew user has no crewId', async () => {
+    setAuthContext({ userId: 'user-1', tenantId: TENANT_A, role: 'crew', plan: 'basic', crewId: null })
     const token = await signToken({ sub: 'user-1', tenantId: TENANT_A, role: 'crew', plan: 'basic' })
     const res = await app.request('/crew/jobs', { headers: { cookie: `token=${token}` } })
     expect(res.status).toBe(200)

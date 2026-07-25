@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { crews, subscriptions, tenants, users } from '../db/schema.js'
 import { signToken } from '../lib/jwt.js'
@@ -28,6 +28,45 @@ export async function loginUser(email: string) {
     .where(eq(users.email, email))
     .limit(1)
   return rows[0] ?? null
+}
+
+export interface AuthContext {
+  userId: string
+  tenantId: string
+  role: string
+  plan: string
+  crewId: string | null
+}
+
+// The live authorisation state for a token holder, read on every authenticated
+// request. The JWT is treated as proof of identity only — role, plan, crew and
+// continued existence all come from here, so removing a user or changing a role
+// or plan takes effect on their very next request instead of whenever the token
+// happens to expire. Both lookups are on primary keys.
+export async function getAuthContext(userId: string): Promise<AuthContext | null> {
+  const rows = await db
+    .select({
+      userId: users.id,
+      tenantId: users.tenant_id,
+      role: users.role,
+      crewId: users.crew_id,
+      plan: tenants.plan,
+    })
+    .from(users)
+    .innerJoin(tenants, eq(tenants.id, users.tenant_id))
+    .where(and(eq(users.id, userId), isNull(users.deleted_at)))
+    .limit(1)
+
+  const row = rows[0]
+  if (!row) return null
+
+  return {
+    userId: row.userId,
+    tenantId: row.tenantId,
+    role: row.role,
+    plan: row.plan ?? 'trial',
+    crewId: row.crewId ?? null,
+  }
 }
 
 export function generateSlug(companyName: string): string {

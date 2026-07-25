@@ -4,6 +4,8 @@ import { eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { subscriptions } from '../db/schema.js'
 import { verifyToken } from '../lib/jwt.js'
+import { getAuthContext } from '../services/auth.service.js'
+import type { JwtPayload } from '../types/index.js'
 
 export const authMiddleware: MiddlewareHandler = async (c, next) => {
   // Primary: httpOnly cookie (secure, works everywhere except iOS Safari
@@ -18,16 +20,30 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
   }
   if (!token) return c.json({ error: 'Unauthorized' }, 401)
 
+  let payload: JwtPayload
   try {
-    const payload = await verifyToken(token)
-    c.set('userId', payload.sub)
-    c.set('tenantId', payload.tenantId)
-    c.set('role', payload.role)
-    c.set('plan', payload.plan)
-    c.set('crewId', payload.crewId ?? null)
+    payload = await verifyToken(token)
   } catch {
     return c.json({ error: 'Unauthorized' }, 401)
   }
+
+  // A valid signature only proves who issued the token, not that the account
+  // still exists or still has the role and plan the token claims. Everything
+  // authorisation depends on is re-read here, so a removed user is rejected and
+  // a role or plan change lands on the next request rather than in up to a
+  // token lifetime. This covers the Bearer path above as well as the cookie.
+  const auth = await getAuthContext(payload.sub)
+  if (!auth) return c.json({ error: 'Unauthorized' }, 401)
+
+  // The token was issued for a different tenant than the account now belongs
+  // to. Not reachable today (accounts never move), so treat it as a bad token.
+  if (payload.tenantId !== auth.tenantId) return c.json({ error: 'Unauthorized' }, 401)
+
+  c.set('userId', auth.userId)
+  c.set('tenantId', auth.tenantId)
+  c.set('role', auth.role)
+  c.set('plan', auth.plan)
+  c.set('crewId', auth.crewId)
 
   await next()
 }

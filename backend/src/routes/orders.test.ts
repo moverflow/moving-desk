@@ -31,6 +31,11 @@ vi.mock('../db/index.js', () => ({
   db: { select: vi.fn(), insert: vi.fn(), update: vi.fn(), delete: vi.fn(), transaction: vi.fn() },
 }))
 
+vi.mock('../services/auth.service.js', async () => {
+  const { getAuthContextMock } = await import('../test/authContext.js')
+  return { getAuthContext: getAuthContextMock }
+})
+
 const getOrderByIdMock = vi.fn()
 const createOrderMock = vi.fn()
 const findOrCreateClientMock = vi.fn()
@@ -81,6 +86,7 @@ vi.mock('../lib/r2.js', () => ({
 
 const { default: ordersRouter } = await import('./orders.js')
 const { signToken } = await import('../lib/jwt.js')
+const { setAuthContext } = await import('../test/authContext.js')
 
 const app = new Hono<{ Variables: AppVariables }>().route('/orders', ordersRouter)
 
@@ -90,6 +96,7 @@ const ORDER_ID = '33333333-3333-3333-3333-333333333333'
 const FILE_ID = '44444444-4444-4444-4444-444444444444'
 
 async function authCookie(tenantId = TENANT_A): Promise<string> {
+  setAuthContext({ userId: 'user-1', tenantId, role: 'owner', plan: 'trial', crewId: null })
   const token = await signToken({ sub: 'user-1', tenantId, role: 'owner', plan: 'trial' })
   return `token=${token}`
 }

@@ -31,6 +31,11 @@ vi.mock('../db/index.js', () => ({
   db: { select: vi.fn(), insert: vi.fn(), update: vi.fn(), transaction: vi.fn() },
 }))
 
+vi.mock('../services/auth.service.js', async () => {
+  const { getAuthContextMock } = await import('../test/authContext.js')
+  return { getAuthContext: getAuthContextMock }
+})
+
 const createClientMock = vi.fn()
 vi.mock('../services/clients.service.js', () => ({
   createClient: (...args: unknown[]) => createClientMock(...args),
@@ -41,12 +46,14 @@ vi.mock('../services/clients.service.js', () => ({
 
 const { default: clientsRouter } = await import('./clients.js')
 const { signToken } = await import('../lib/jwt.js')
+const { setAuthContext } = await import('../test/authContext.js')
 
 const app = new Hono<{ Variables: AppVariables }>().route('/clients', clientsRouter)
 
 const TENANT_A = '11111111-1111-1111-1111-111111111111'
 
 async function authCookie(tenantId = TENANT_A): Promise<string> {
+  setAuthContext({ userId: 'user-1', tenantId, role: 'owner', plan: 'trial', crewId: null })
   const token = await signToken({ sub: 'user-1', tenantId, role: 'owner', plan: 'trial' })
   return `token=${token}`
 }

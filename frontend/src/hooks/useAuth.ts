@@ -59,7 +59,10 @@ export function useLogout() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: () => apiFetch<{ message: string }>('/auth/logout', { method: 'POST' }),
-    onSuccess: () => {
+    // onSettled, not onSuccess: if the request 401s, times out or the network
+    // is down, the user must still end up logged out locally rather than
+    // staying signed in on what might be a shared device.
+    onSettled: () => {
       useAuthStore.getState().clearAuth()
       queryClient.removeQueries()
     },

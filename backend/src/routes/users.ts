@@ -1,9 +1,8 @@
 import bcrypt from 'bcryptjs'
 import { Hono } from 'hono'
-import { setCookie } from 'hono/cookie'
 import { z } from 'zod'
+import { setAuthCookie } from '../lib/authCookie.js'
 import { sendInviteEmail } from '../lib/email.js'
-import { env } from '../lib/env.js'
 import { authMiddleware, requireOwner } from '../middleware/auth.js'
 import type { AppVariables } from '../types/index.js'
 import {
@@ -113,13 +112,7 @@ usersRouter.post('/join', async (c) => {
     passwordHash,
   })
 
-  setCookie(c, 'token', jwt, {
-    httpOnly: true,
-    sameSite: 'Lax',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 7,
-    secure: env.NODE_ENV === 'production',
-  })
+  setAuthCookie(c, jwt)
 
   return c.json(
     {
