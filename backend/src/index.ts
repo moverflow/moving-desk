@@ -6,12 +6,14 @@ import app from './app.js'
 import { env } from './lib/env.js'
 import { logger } from './lib/logger.js'
 import { assertStorageConfigured } from './lib/r2.js'
+import { assertStripeConfigured } from './lib/stripe.js'
 
 initSentry()
 installProcessErrorHandlers()
 
 try {
   assertStorageConfigured()
+  assertStripeConfigured()
 } catch (err) {
   logger.error(err instanceof Error ? err.message : err)
   process.exit(1)

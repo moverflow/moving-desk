@@ -1,7 +1,8 @@
 import { and, eq, gt, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { clients, invoices, orders, tenants } from '../db/schema.js'
+import { clients, invoiceCounters, invoices, orders, tenants } from '../db/schema.js'
 import { env } from '../lib/env.js'
+import { logger } from '../lib/logger.js'
 import { stripe } from '../lib/stripe.js'
 import { createNotification } from './notifications.service.js'
 
@@ -14,6 +15,47 @@ function formatMoveDate(moveDate: string): string {
   }).format(new Date(`${moveDate}T00:00:00Z`))
 }
 
+// First call for a tenant: seed the counter from its current invoice count, so a
+// tenant with pre-existing invoices (e.g. from the demo seed script) doesn't hand
+// out a number that collides with one already in the table. onConflictDoNothing
+// means a concurrent first-call race just no-ops for whichever loses.
+async function seedInvoiceCounter(tenantId: string): Promise<void> {
+  const [existing] = await db
+    .select({ tenantId: invoiceCounters.tenant_id })
+    .from(invoiceCounters)
+    .where(eq(invoiceCounters.tenant_id, tenantId))
+    .limit(1)
+  if (existing) return
+
+  const [countRow] = await db
+    .select({ value: sql<number>`cast(count(*) as int)` })
+    .from(invoices)
+    .where(eq(invoices.tenant_id, tenantId))
+
+  await db
+    .insert(invoiceCounters)
+    .values({ tenant_id: tenantId, last_number: (countRow?.value ?? 0) + 1000 })
+    .onConflictDoNothing()
+}
+
+// Atomically increments the tenant's counter and returns the number to use.
+// Whatever number of callers race here, they all land on the same row and Postgres
+// serializes the updates via a row lock — no count(*) race, no retry loop, no way
+// for two callers to ever get the same value back.
+async function nextInvoiceNumber(tenantId: string): Promise<number> {
+  await seedInvoiceCounter(tenantId)
+
+  const [row] = await db
+    .insert(invoiceCounters)
+    .values({ tenant_id: tenantId, last_number: 1001 })
+    .onConflictDoUpdate({
+      target: invoiceCounters.tenant_id,
+      set: { last_number: sql`${invoiceCounters.last_number} + 1` },
+    })
+    .returning({ lastNumber: invoiceCounters.last_number })
+  return row.lastNumber
+}
+
 export async function generateInvoice(tenantId: string, orderId: string) {
   const [order] = await db
     .select({ id: orders.id })
@@ -23,16 +65,9 @@ export async function generateInvoice(tenantId: string, orderId: string) {
 
   if (!order) return null
 
-  const [countRow] = await db
-    .select({ value: sql<number>`cast(count(*) as int)` })
-    .from(invoices)
-    .where(eq(invoices.tenant_id, tenantId))
-
-  const nextNum = (countRow?.value ?? 0) + 1001
-  const number = `INV-${nextNum}`
-
   const expiresAt = new Date()
   expiresAt.setDate(expiresAt.getDate() + 7)
+  const number = `INV-${await nextInvoiceNumber(tenantId)}`
 
   const [invoice] = await db
     .insert(invoices)
@@ -179,7 +214,8 @@ export async function createInvoicePaymentLink(token: string): Promise<PaymentLi
       },
     ],
     mode: 'payment',
-    success_url: `${env.FRONTEND_URL}/pay/success?session_id={CHECKOUT_SESSION_ID}`,
+    // token lets PaySuccessPage poll GET /invoices/share/:token for real status.
+    success_url: `${env.FRONTEND_URL}/pay/success?session_id={CHECKOUT_SESSION_ID}&token=${row.shareToken}`,
     cancel_url: `${env.FRONTEND_URL}/i/${row.shareToken}`,
     metadata: {
       invoiceId: row.invoiceId,
@@ -213,6 +249,7 @@ async function getPaidInvoiceEmailData(invoiceId: string) {
       tenantId: invoices.tenant_id,
       number: invoices.number,
       moveDate: orders.move_date,
+      totalPrice: orders.total_price,
       clientEmail: clients.email,
       clientName: clients.name,
       companyName: tenants.name,
@@ -224,6 +261,32 @@ async function getPaidInvoiceEmailData(invoiceId: string) {
     .where(eq(invoices.id, invoiceId))
     .limit(1)
   return row ?? null
+}
+
+type PaidEmailRow = NonNullable<Awaited<ReturnType<typeof getPaidInvoiceEmailData>>>
+
+// The money has already moved, so the invoice is still recorded as paid even on a
+// mismatch — but a mismatch means Stripe charged a different amount than the
+// order's total_price, which needs a human to look at it, not a silent accept.
+// Behind markInvoicePaidFromSession's status guard, so a webhook replay never
+// notifies (or logs the mismatch) twice.
+async function notifyInvoicePaid(invoiceId: string, row: PaidEmailRow, paidAmount: number | null): Promise<void> {
+  const amountMismatch = paidAmount !== null && paidAmount !== row.totalPrice
+  if (amountMismatch) {
+    logger.error(
+      { invoiceId, expected: row.totalPrice, received: paidAmount },
+      'Stripe payment amount does not match invoice total — flagging for manual review',
+    )
+  }
+
+  await createNotification({
+    tenantId: row.tenantId,
+    type: 'invoice_paid',
+    title: amountMismatch ? `⚠️ Invoice ${row.number} paid — amount mismatch` : `Invoice ${row.number} paid`,
+    body: `$${(paidAmount ?? 0).toLocaleString('en-US')} received${row.clientName ? ` from ${row.clientName}` : ''}`,
+    relatedType: 'invoice',
+    relatedId: invoiceId,
+  })
 }
 
 // Marks an invoice paid from a Stripe checkout session. Guards on status so a
@@ -252,15 +315,7 @@ export async function markInvoicePaidFromSession(params: {
   const row = await getPaidInvoiceEmailData(params.invoiceId)
   if (!row) return null
 
-  // Behind the status guard above, so a webhook replay does not notify twice.
-  await createNotification({
-    tenantId: row.tenantId,
-    type: 'invoice_paid',
-    title: `Invoice ${row.number} paid`,
-    body: `$${(paidAmount ?? 0).toLocaleString('en-US')} received${row.clientName ? ` from ${row.clientName}` : ''}`,
-    relatedType: 'invoice',
-    relatedId: params.invoiceId,
-  })
+  await notifyInvoicePaid(params.invoiceId, row, paidAmount)
 
   return {
     number: row.number,
@@ -270,6 +325,56 @@ export async function markInvoicePaidFromSession(params: {
     companyName: row.companyName,
     amount: paidAmount ?? 0,
   }
+}
+
+// checkout.session.expired / async_payment_failed: the customer never paid, so the
+// invoice stays 'sent' (they can retry via the same share link) — only the stale
+// session id is cleared so a fresh payment-link request isn't confused with it.
+export async function clearInvoiceCheckoutSession(invoiceId: string): Promise<void> {
+  await db.update(invoices).set({ stripe_checkout_session_id: null }).where(eq(invoices.id, invoiceId))
+}
+
+async function findInvoiceByPaymentIntent(paymentIntentId: string) {
+  const [row] = await db
+    .select({ id: invoices.id, tenantId: invoices.tenant_id, number: invoices.number })
+    .from(invoices)
+    .where(eq(invoices.stripe_payment_intent_id, paymentIntentId))
+    .limit(1)
+  return row ?? null
+}
+
+// charge.refunded: without this, a refunded invoice kept showing 'paid' (Payment
+// received) forever — there was no path back out of that status at all.
+export async function markInvoiceRefunded(paymentIntentId: string): Promise<void> {
+  const invoice = await findInvoiceByPaymentIntent(paymentIntentId)
+  if (!invoice) return
+
+  await db.update(invoices).set({ status: 'refunded' }).where(eq(invoices.id, invoice.id))
+  await createNotification({
+    tenantId: invoice.tenantId,
+    type: 'invoice_refunded',
+    title: `Invoice ${invoice.number} refunded`,
+    body: 'This payment was refunded via Stripe.',
+    relatedType: 'invoice',
+    relatedId: invoice.id,
+  })
+}
+
+// charge.dispute.created: the client's bank is disputing the charge — surface it so
+// the owner can respond in Stripe before the dispute deadline passes.
+export async function markInvoiceDisputed(paymentIntentId: string): Promise<void> {
+  const invoice = await findInvoiceByPaymentIntent(paymentIntentId)
+  if (!invoice) return
+
+  await db.update(invoices).set({ status: 'disputed' }).where(eq(invoices.id, invoice.id))
+  await createNotification({
+    tenantId: invoice.tenantId,
+    type: 'invoice_disputed',
+    title: `Invoice ${invoice.number} disputed`,
+    body: 'The client disputed this charge with their bank — respond in Stripe.',
+    relatedType: 'invoice',
+    relatedId: invoice.id,
+  })
 }
 
 export async function getPublicInvoice(token: string) {

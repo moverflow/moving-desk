@@ -116,39 +116,50 @@ interface PublicInvoiceRow {
   companySettings: unknown
 }
 
-export function usePublicInvoice(token: string) {
+const PAY_STATUS_POLL_MS = 3_000
+
+function mapPublicInvoiceRow(row: PublicInvoiceRow, token: string): { invoice: Invoice; company: Company } {
+  const invoice: Invoice = {
+    id: row.invoiceId,
+    tenantId: '',
+    orderId: '',
+    number: row.number,
+    status: row.status as InvoiceStatus,
+    clientName: row.clientName ?? '',
+    clientPhone: row.clientPhone ?? '',
+    clientEmail: '',
+    fromAddress: row.fromAddress,
+    toAddress: row.toAddress,
+    moveDate: row.moveDate,
+    homeSize: row.homeSize,
+    packing: row.packing ?? false,
+    basePrice: row.basePrice,
+    totalPrice: row.totalPrice,
+    shareToken: token,
+    paidAt: row.paidAt ?? undefined,
+    createdAt: row.createdAt ?? '',
+  }
+  const company: Company = {
+    name: row.companyName,
+    phone: '',
+    website: '',
+    logoUrl: row.companyLogoUrl,
+  }
+  return { invoice, company }
+}
+
+export function usePublicInvoice(token: string, options?: { pollUntilResolved?: boolean }) {
   return useQuery<{ invoice: Invoice; company: Company }>({
     queryKey: ['invoice-public', token],
+    // Used by PaySuccessPage right after a Stripe redirect, before the webhook has
+    // necessarily landed — keeps polling until the invoice reaches a terminal
+    // (non-'sent') status instead of showing a guessed result.
+    refetchInterval: options?.pollUntilResolved
+      ? (query) => (query.state.data?.invoice.status === 'sent' ? PAY_STATUS_POLL_MS : false)
+      : undefined,
     queryFn: async () => {
       const data = await apiFetch<{ invoice: PublicInvoiceRow }>(`/invoices/share/${token}`)
-      const row = data.invoice
-      const invoice: Invoice = {
-        id: row.invoiceId,
-        tenantId: '',
-        orderId: '',
-        number: row.number,
-        status: row.status as InvoiceStatus,
-        clientName: row.clientName ?? '',
-        clientPhone: row.clientPhone ?? '',
-        clientEmail: '',
-        fromAddress: row.fromAddress,
-        toAddress: row.toAddress,
-        moveDate: row.moveDate,
-        homeSize: row.homeSize,
-        packing: row.packing ?? false,
-        basePrice: row.basePrice,
-        totalPrice: row.totalPrice,
-        shareToken: token,
-        paidAt: row.paidAt ?? undefined,
-        createdAt: row.createdAt ?? '',
-      }
-      const company: Company = {
-        name: row.companyName,
-        phone: '',
-        website: '',
-        logoUrl: row.companyLogoUrl,
-      }
-      return { invoice, company }
+      return mapPublicInvoiceRow(data.invoice, token)
     },
     enabled: token.length > 0,
   })

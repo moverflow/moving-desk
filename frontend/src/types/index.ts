@@ -95,7 +95,7 @@ export interface Crew {
   active: boolean
 }
 
-export type InvoiceStatus = 'draft' | 'sent' | 'paid'
+export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'refunded' | 'disputed'
 
 export interface Invoice {
   id: string

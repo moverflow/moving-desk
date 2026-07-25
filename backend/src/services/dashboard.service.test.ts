@@ -22,7 +22,7 @@ vi.mock('../lib/logger.js', () => ({
 }))
 
 const { db } = await import('../db/index.js')
-const { tenants, users, crews, orders } = await import('../db/schema.js')
+const { tenants, users, crews, orders, invoices, invoiceCounters } = await import('../db/schema.js')
 const { getSummary, getOrdersByStatus, getOrdersByWeek, getTopCrews } = await import('./dashboard.service.js')
 
 let dbAvailable = true
@@ -94,6 +94,12 @@ function daysAgo(n: number): string {
 
 describe.skipIf(!dbAvailable)('dashboard.service (real Postgres)', () => {
   beforeEach(async () => {
+    // invoices/invoiceCounters aren't otherwise used in this file, but another
+    // real-Postgres test file sharing the same local DB (e.g.
+    // invoices.concurrency.test.ts) can leave rows referencing orders/tenants —
+    // deleted here too so this suite's own cleanup never trips on someone else's FK.
+    await db.delete(invoices)
+    await db.delete(invoiceCounters)
     await db.delete(orders)
     await db.delete(crews)
     await db.delete(users)

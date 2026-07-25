@@ -226,8 +226,10 @@ export const invoices = pgTable('invoices', {
   order_id: uuid('order_id').notNull().references(() => orders.id),
   number: varchar('number', { length: 20 }).notNull(),
 
+  // 'refunded'/'disputed' cover charge.refunded / charge.dispute.created — without
+  // them a refunded invoice kept showing 'paid' (Payment received) forever.
   status: varchar('status', { length: 20 })
-    .$type<'draft' | 'sent' | 'paid'>()
+    .$type<'draft' | 'sent' | 'paid' | 'refunded' | 'disputed'>()
     .notNull()
     .default('draft'),
 
@@ -246,6 +248,12 @@ export const invoices = pgTable('invoices', {
   tenantStatusIdx: index('invoices_tenant_status_idx')
     .on(table.tenant_id, table.status),
 
+  // Concurrent invoice creation for the same tenant used to be able to compute the
+  // same count(*)+1001 number twice — this constraint turns that race into a
+  // retryable unique-violation instead of a silent duplicate (see generateInvoice).
+  tenantNumberIdx: uniqueIndex('invoices_tenant_number_idx')
+    .on(table.tenant_id, table.number),
+
   // Публичная ссылка: GET /i/:token
   // SELECT * FROM invoices WHERE share_token = ? AND expires_at > NOW()
   // share_token уже unique — индекс создаётся автоматически
@@ -253,6 +261,18 @@ export const invoices = pgTable('invoices', {
   // Инвойс по заказу: один заказ = один инвойс
   orderIdIdx: uniqueIndex('invoices_order_id_idx').on(table.order_id),
 }))
+
+// ─── INVOICE COUNTERS ─────────────────────────────────────────────────────────
+// Backs generateInvoice()'s per-tenant numbering. A plain count(*)+1001 has no
+// atomicity: two concurrent requests can read the same count and try to insert the
+// same number. This table exists purely so `INSERT ... ON CONFLICT (tenant_id) DO
+// UPDATE SET last_number = last_number + 1 RETURNING last_number` can hand out a
+// number — Postgres serializes concurrent upserts on the same row via a row lock,
+// so no two callers can ever get the same value back, regardless of concurrency.
+export const invoiceCounters = pgTable('invoice_counters', {
+  tenant_id: uuid('tenant_id').primaryKey().references(() => tenants.id),
+  last_number: integer('last_number').notNull(),
+})
 
 // ─── SUBSCRIPTIONS ────────────────────────────────────────────────────────────
 export const subscriptions = pgTable('subscriptions', {
@@ -373,7 +393,14 @@ export const notifications = pgTable('notifications', {
   tenant_id: uuid('tenant_id').notNull().references(() => tenants.id),
 
   type: varchar('type', { length: 40 })
-    .$type<'lead_new' | 'contract_signed' | 'invoice_paid' | 'move_reminder'>()
+    .$type<
+      | 'lead_new'
+      | 'contract_signed'
+      | 'invoice_paid'
+      | 'invoice_refunded'
+      | 'invoice_disputed'
+      | 'move_reminder'
+    >()
     .notNull(),
 
   title: varchar('title', { length: 255 }).notNull(),
@@ -404,6 +431,27 @@ export const notifications = pgTable('notifications', {
     .on(table.tenant_id, table.type, table.related_id),
 }))
 
+// ─── STRIPE EVENTS ────────────────────────────────────────────────────────────
+// Idempotency + ordering ledger for Stripe webhooks. `id` is Stripe's own event id
+// (globally unique), so a row existing IS the idempotency check. `customer_id` +
+// `created` (Stripe's event timestamp, not our insert time) let a handler ask "is
+// this the most recent event for this customer?" before applying a status change —
+// without it, an out-of-order customer.subscription.updated can regress a newer
+// status back to an older one.
+export const stripeEvents = pgTable('stripe_events', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  customer_id: varchar('customer_id', { length: 255 }),
+  type: varchar('type', { length: 100 }).notNull(),
+  created: timestamp('created').notNull(),
+  processed_at: timestamp('processed_at').defaultNow(),
+},
+(table) => ({
+  // "What's the latest event we've applied for this customer?" — MAX(created)
+  // WHERE customer_id = ?
+  customerCreatedIdx: index('stripe_events_customer_created_idx')
+    .on(table.customer_id, table.created),
+}))
+
 // ─── ЭКСПОРТ ТИПОВ ────────────────────────────────────────────────────────────
 // Drizzle умеет автоматически генерировать TypeScript типы из схемы
 // Используй их вместо ручного написания интерфейсов
@@ -426,6 +474,8 @@ export type NewOrder = typeof orders.$inferInsert
 export type Invoice = typeof invoices.$inferSelect
 export type NewInvoice = typeof invoices.$inferInsert
 
+export type InvoiceCounter = typeof invoiceCounters.$inferSelect
+
 export type Subscription = typeof subscriptions.$inferSelect
 export type Invite = typeof invites.$inferSelect
 
@@ -437,3 +487,6 @@ export type NewLead = typeof leads.$inferInsert
 
 export type Notification = typeof notifications.$inferSelect
 export type NewNotification = typeof notifications.$inferInsert
+
+export type StripeEvent = typeof stripeEvents.$inferSelect
+export type NewStripeEvent = typeof stripeEvents.$inferInsert
