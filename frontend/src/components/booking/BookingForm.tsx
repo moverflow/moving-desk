@@ -1,5 +1,5 @@
 import type { JSX } from 'react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { HomeSize, PublicBookingTenant, BookingFormData, BookingResult } from '@/types'
 import { Input } from '@/components/ui/input'
@@ -51,6 +51,10 @@ export default function BookingForm({ slug, tenant, onSuccess }: BookingFormProp
   const [error, setError] = useState<string | null>(null)
   const queryClient = useQueryClient()
   const { mutateAsync, isPending } = useCreateBooking(slug)
+  // Bot defenses, checked server-side: a hidden field only a script fills, and
+  // how long the form was on screen. Neither adds anything for a real user.
+  const [honeypot, setHoneypot] = useState('')
+  const renderedAt = useRef(Date.now())
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]): void {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -85,15 +89,19 @@ export default function BookingForm({ slug, tenant, onSuccess }: BookingFormProp
       toElevator: form.toElevator,
       packing: form.packing,
       ...(form.notes.trim() ? { notes: form.notes.trim() } : {}),
+      website: honeypot,
+      elapsedMs: Date.now() - renderedAt.current,
     }
 
     try {
       const result = await mutateAsync(payload)
       onSuccess(result, payload)
     } catch (err) {
-      if (err instanceof ApiError && err.status === 409) {
+      // Surface the server's own wording so a rate-limited or rejected client
+      // is told what to do next ("call us directly") instead of a generic error.
+      if (err instanceof ApiError) {
         setError(err.message)
-        if (err.message.toLowerCase().includes('no longer available')) {
+        if (err.status === 409 && err.message.toLowerCase().includes('no longer available')) {
           set('moveDate', null)
           void queryClient.invalidateQueries({ queryKey: ['booking-availability', slug] })
         }
@@ -106,6 +114,23 @@ export default function BookingForm({ slug, tenant, onSuccess }: BookingFormProp
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <h2 className="text-base font-semibold text-gray-900">Book your move</h2>
+
+      {/*
+        Honeypot. Positioned off-screen rather than display:none, which some
+        bots skip; hidden from assistive tech and removed from the tab order so
+        it is invisible to real users either way.
+      */}
+      <input
+        type="text"
+        name="website"
+        value={honeypot}
+        onChange={(e) => setHoneypot(e.target.value)}
+        tabIndex={-1}
+        autoComplete="off"
+        aria-hidden="true"
+        style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0 }}
+      />
+
 
       <div className="space-y-1.5">
         <Label htmlFor="clientPhone">Phone *</Label>

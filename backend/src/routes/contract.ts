@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
+import { rateLimit } from '../middleware/rateLimit.js'
 import {
   getPublicContract,
   signContract,
@@ -7,6 +8,14 @@ import {
 } from '../services/contract.service.js'
 
 const MAX_PDF_SIZE_BYTES = 5 * 1024 * 1024
+
+// One signing produces one PDF upload. The headroom covers a client retrying
+// over a flaky mobile connection.
+const pdfUploadRateLimit = rateLimit({
+  limit: 10,
+  windowMs: 60 * 60 * 1000,
+  message: 'Too many upload attempts. Please try again later.',
+})
 
 const signSchema = z.object({
   signedName: z.string().trim().min(2),
@@ -46,7 +55,7 @@ contractRouter.post('/:token/sign', async (c) => {
   }
 })
 
-contractRouter.post('/:token/pdf', async (c) => {
+contractRouter.post('/:token/pdf', pdfUploadRateLimit, async (c) => {
   let formData: FormData
   try {
     formData = await c.req.formData()

@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { env } from '../lib/env.js'
 import { authMiddleware } from '../middleware/auth.js'
+import { rateLimit } from '../middleware/rateLimit.js'
 import {
   convertLeadToOrder,
   createLead,
@@ -51,7 +52,15 @@ function str(v: unknown): string | undefined {
   return typeof v === 'string' && v.trim().length > 0 ? v.trim() : undefined
 }
 
-leadsRouter.post('/webhook', async (c) => {
+// Looser than the booking page: this is a machine-to-machine integration that
+// can legitimately burst when a Zapier automation catches up on a backlog.
+const webhookRateLimit = rateLimit({
+  limit: 30,
+  windowMs: 60 * 1000,
+  message: 'Too many webhook requests. Please retry shortly.',
+})
+
+leadsRouter.post('/webhook', webhookRateLimit, async (c) => {
   const secret = c.req.query('secret')
   if (!env.WEBHOOK_SECRET || secret !== env.WEBHOOK_SECRET) {
     return c.json({ error: 'Unauthorized' }, 401)

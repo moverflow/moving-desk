@@ -200,6 +200,10 @@ export interface BookingFormData {
   toElevator: boolean
   packing: boolean
   notes?: string
+  // Bot defenses validated server-side: a hidden honeypot field that must stay
+  // empty, and how long the form was on screen before submission.
+  website?: string
+  elapsedMs?: number
 }
 
 export interface BookingResult {
