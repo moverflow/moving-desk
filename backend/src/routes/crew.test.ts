@@ -24,6 +24,10 @@ vi.mock('../services/auth.service.js', async () => {
   return { getAuthContext: getAuthContextMock }
 })
 
+vi.mock('../services/settings.service.js', () => ({
+  getTenantTimezone: () => Promise.resolve('America/Los_Angeles'),
+}))
+
 const getCrewJobsMock = vi.fn()
 const getCrewJobMock = vi.fn()
 const setCrewJobStatusMock = vi.fn()
@@ -81,13 +85,23 @@ beforeEach(() => {
 describe('GET /crew/jobs', () => {
   it('AC1 — returns this crew\'s jobs, scoped by tenant + crew', async () => {
     const jobs = [{ id: ORDER_ID, status: 'confirmed', moveDate: '2026-07-18' }]
-    getCrewJobsMock.mockResolvedValue(jobs)
+    getCrewJobsMock.mockResolvedValue({ jobs, today: '2026-07-18', tomorrow: '2026-07-19' })
 
     const res = await app.request('/crew/jobs', { headers: { cookie: await crewCookie() } })
 
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ jobs })
+    expect(await res.json()).toEqual({ jobs, today: '2026-07-18', tomorrow: '2026-07-19' })
     expect(getCrewJobsMock).toHaveBeenCalledWith(TENANT_A, CREW_A)
+  })
+
+  it('returns the day boundary so the PWA labels match the jobs it was sent', async () => {
+    getCrewJobsMock.mockResolvedValue({ jobs: [], today: '2026-08-14', tomorrow: '2026-08-15' })
+
+    const res = await app.request('/crew/jobs', { headers: { cookie: await crewCookie() } })
+
+    const body = (await res.json()) as { today: string; tomorrow: string }
+    expect(body.today).toBe('2026-08-14')
+    expect(body.tomorrow).toBe('2026-08-15')
   })
 
   it('returns 401 without an auth cookie', async () => {
@@ -112,7 +126,11 @@ describe('GET /crew/jobs', () => {
     const token = await signToken({ sub: 'user-1', tenantId: TENANT_A, role: 'crew', plan: 'basic' })
     const res = await app.request('/crew/jobs', { headers: { cookie: `token=${token}` } })
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ jobs: [] })
+    const body = (await res.json()) as { jobs: unknown[]; today: string; tomorrow: string }
+    expect(body.jobs).toEqual([])
+    // Still tenant-local dates, so the empty view is labelled correctly.
+    expect(body.today).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(body.tomorrow).toMatch(/^\d{4}-\d{2}-\d{2}$/)
     expect(getCrewJobsMock).not.toHaveBeenCalled()
   })
 })

@@ -2,7 +2,7 @@ import type { JSX } from 'react'
 import type { Order } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { formatDate } from '@/lib/utils'
+import { formatTimestamp } from '@/lib/utils'
 import { useSendContract } from '@/hooks/useOrders'
 import { useOrderFiles } from '@/hooks/useOrderFiles'
 
@@ -27,7 +27,7 @@ export default function ContractSection({ order }: ContractSectionProps): JSX.El
           <p className="text-green-600">
             Signed{order.contractSignedName ? ` by ${order.contractSignedName}` : ''}
             {order.contractSignedAt
-              ? ` on ${formatDate(new Date(order.contractSignedAt))}`
+              ? ` on ${formatTimestamp(new Date(order.contractSignedAt))}`
               : ''}
           </p>
           {contractFile && (

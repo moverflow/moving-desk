@@ -37,7 +37,12 @@ vi.mock('../db/index.js', () => {
   }
 })
 
+vi.mock('./settings.service.js', () => ({
+  getTenantTimezone: () => Promise.resolve('America/Los_Angeles'),
+}))
+
 const { getCrewJobs, setCrewJobStatus } = await import('./crew.service.js')
+const { addDays, getTenantToday } = await import('../lib/timezone.js')
 
 function eqPairs(node: unknown, pairs: Array<{ column: string; value: unknown }> = []): Array<{ column: string; value: unknown }> {
   if (!node || typeof node !== 'object') return pairs
@@ -79,8 +84,10 @@ function allStrings(node: unknown, seen = new Set<unknown>(), acc: string[] = []
 const TENANT_A = '11111111-1111-1111-1111-111111111111'
 const CREW_A = '22222222-2222-2222-2222-222222222222'
 
-function isoDate(offsetDays: number): string {
-  return new Date(Date.now() + offsetDays * 86_400_000).toISOString().split('T')[0]
+// The tenant's own calendar date, which is what the query must use — not the
+// UTC date, which is already tomorrow during a California evening.
+function tenantDate(offsetDays: number): string {
+  return addDays(getTenantToday('America/Los_Angeles'), offsetDays)
 }
 
 beforeEach(() => {
@@ -95,19 +102,27 @@ describe('getCrewJobs', () => {
   it('AC1/AC3 — filters by tenant, crew, and today+tomorrow move dates', async () => {
     selectRows.push({ id: 'order-1' })
 
-    const rows = await getCrewJobs(TENANT_A, CREW_A)
-    expect(rows).toEqual([{ id: 'order-1' }])
+    const result = await getCrewJobs(TENANT_A, CREW_A)
+    expect(result.jobs).toEqual([{ id: 'order-1' }])
 
     const byColumn = Object.fromEntries(eqPairs(whereConds[0]).map((p) => [p.column, p.value]))
     expect(byColumn.tenant_id).toBe(TENANT_A)
     expect(byColumn.crew_id).toBe(CREW_A)
 
     const strings = allStrings(whereConds[0])
-    expect(strings).toContain(isoDate(0))
-    expect(strings).toContain(isoDate(1))
+    expect(strings).toContain(tenantDate(0))
+    expect(strings).toContain(tenantDate(1))
     // Cancelled/closed are excluded from the field view.
     expect(strings).toContain('cancelled')
     expect(strings).toContain('closed')
+  })
+
+  it('returns the tenant-local day boundary it queried on', async () => {
+    const result = await getCrewJobs(TENANT_A, CREW_A)
+
+    expect(result.today).toBe(tenantDate(0))
+    expect(result.tomorrow).toBe(tenantDate(1))
+    expect(result.tomorrow).toBe(addDays(result.today, 1))
   })
 })
 

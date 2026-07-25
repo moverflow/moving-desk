@@ -1,6 +1,8 @@
 import { and, asc, eq, inArray, notInArray } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { clients, orders } from '../db/schema.js'
+import { addDays, getTenantToday } from '../lib/timezone.js'
+import { getTenantTimezone } from './settings.service.js'
 import type { OrderStatus } from '../types/index.js'
 
 const crewJobFields = {
@@ -21,13 +23,13 @@ const crewJobFields = {
   clientPhone: clients.phone,
 }
 
-// Today + tomorrow jobs assigned to this crew (UTC dates, matching how move_date
-// is stored). Always scoped by tenant AND crew — a crew member only ever sees
-// their own crew's work. Cancelled/closed jobs are hidden from the field view.
-export async function getCrewJobs(tenantId: string, crewId: string) {
-  const today = new Date().toISOString().split('T')[0]
-  const tomorrow = new Date(Date.now() + 86_400_000).toISOString().split('T')[0]
+export interface CrewJobsResult {
+  jobs: Awaited<ReturnType<typeof selectCrewJobs>>
+  today: string
+  tomorrow: string
+}
 
+function selectCrewJobs(tenantId: string, crewId: string, days: string[]) {
   return db
     .select(crewJobFields)
     .from(orders)
@@ -36,11 +38,28 @@ export async function getCrewJobs(tenantId: string, crewId: string) {
       and(
         eq(orders.tenant_id, tenantId),
         eq(orders.crew_id, crewId),
-        inArray(orders.move_date, [today, tomorrow]),
+        inArray(orders.move_date, days),
         notInArray(orders.status, ['cancelled', 'closed']),
       ),
     )
     .orderBy(asc(orders.move_date))
+}
+
+// Today + tomorrow jobs assigned to this crew, where "today" is the calendar
+// date in the tenant's own timezone. Using UTC meant a California crew lost the
+// job they were still working the moment it passed 5pm locally.
+//
+// The dates are returned alongside the jobs so the PWA labels the sections with
+// the same boundary the query used, instead of recomputing it in the browser.
+// Always scoped by tenant AND crew — a crew member only ever sees their own
+// crew's work. Cancelled/closed jobs are hidden from the field view.
+export async function getCrewJobs(tenantId: string, crewId: string): Promise<CrewJobsResult> {
+  const timezone = await getTenantTimezone(tenantId)
+  const today = getTenantToday(timezone)
+  const tomorrow = addDays(today, 1)
+
+  const jobs = await selectCrewJobs(tenantId, crewId, [today, tomorrow])
+  return { jobs, today, tomorrow }
 }
 
 export async function getCrewJob(tenantId: string, crewId: string, orderId: string) {

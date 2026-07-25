@@ -2,6 +2,8 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { authMiddleware, requireCrew } from '../middleware/auth.js'
 import { resolveOrderFileUrl } from '../lib/r2.js'
+import { addDays, getTenantToday } from '../lib/timezone.js'
+import { getTenantTimezone } from '../services/settings.service.js'
 import { getCrewJob, getCrewJobs, setCrewJobStatus } from '../services/crew.service.js'
 import { listOrderFiles } from '../services/files.service.js'
 import { sendOrderCompletedEmail } from '../services/orders.service.js'
@@ -16,10 +18,14 @@ const crewRouter = new Hono<{ Variables: AppVariables }>()
 crewRouter.get('/jobs', authMiddleware, requireCrew, async (c) => {
   const tenantId = c.get('tenantId')
   const crewId = c.get('crewId')
-  if (!crewId) return c.json({ jobs: [] })
+  if (!crewId) {
+    const timezone = await getTenantTimezone(tenantId)
+    const today = getTenantToday(timezone)
+    return c.json({ jobs: [], today, tomorrow: addDays(today, 1) })
+  }
 
-  const jobs = await getCrewJobs(tenantId, crewId)
-  return c.json({ jobs })
+  const { jobs, today, tomorrow } = await getCrewJobs(tenantId, crewId)
+  return c.json({ jobs, today, tomorrow })
 })
 
 crewRouter.patch('/jobs/:id/status', authMiddleware, requireCrew, async (c) => {

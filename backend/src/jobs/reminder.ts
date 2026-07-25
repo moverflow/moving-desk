@@ -1,9 +1,10 @@
-import { and, eq, lt } from 'drizzle-orm'
+import { and, eq, gte, lt, lte } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { clients, leads, orders, tenants, users } from '../db/schema.js'
 import { env } from '../lib/env.js'
 import { sendLeadReminderEmail, sendMoveReminderEmail } from '../lib/email.js'
 import { logger } from '../lib/logger.js'
+import { addDays, getTenantTomorrow } from '../lib/timezone.js'
 import type { TenantSettings } from '../types/index.js'
 
 function formatMoveDate(moveDate: string): string {
@@ -15,16 +16,19 @@ function formatMoveDate(moveDate: string): string {
   }).format(new Date(`${moveDate}T00:00:00Z`))
 }
 
-function tomorrowDate(): string {
-  const tomorrow = new Date()
-  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1)
-  return tomorrow.toISOString().split('T')[0]
+// Tenants span timezones, so there is no single "tomorrow" to query on. A
+// tenant-local date can sit at most one day either side of the UTC date, so we
+// pull the narrow window that could possibly be someone's tomorrow and then
+// decide per order using that tenant's own zone.
+function candidateWindow(now: Date = new Date()): { from: string; to: string } {
+  const utcToday = now.toISOString().slice(0, 10)
+  return { from: utcToday, to: addDays(utcToday, 2) }
 }
 
 export async function sendDailyReminders(): Promise<void> {
   logger.info('Running daily reminder job...')
 
-  const target = tomorrowDate()
+  const { from, to } = candidateWindow()
 
   const ordersToRemind = await db
     .select({
@@ -38,13 +42,14 @@ export async function sendDailyReminders(): Promise<void> {
     .from(orders)
     .where(
       and(
-        eq(orders.move_date, target),
+        gte(orders.move_date, from),
+        lte(orders.move_date, to),
         eq(orders.status, 'confirmed'),
         eq(orders.reminder_sent, false),
       ),
     )
 
-  logger.info(`Found ${ordersToRemind.length} orders to remind`)
+  logger.info(`Found ${ordersToRemind.length} candidate orders in ${from}..${to}`)
 
   for (const order of ordersToRemind) {
     try {
@@ -67,6 +72,10 @@ export async function sendDailyReminders(): Promise<void> {
       if (!tenant) continue
 
       const settings = (tenant.settings ?? {}) as Partial<TenantSettings>
+
+      // "Your move is tomorrow" must mean tomorrow where the customer lives,
+      // not wherever the server's clock happens to have rolled over to.
+      if (order.moveDate !== getTenantTomorrow(settings.timezone)) continue
 
       await sendMoveReminderEmail({
         to: client.email,

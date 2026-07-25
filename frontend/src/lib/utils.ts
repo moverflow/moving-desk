@@ -5,12 +5,26 @@ export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs))
 }
 
+// For bare calendar dates such as move_date ("2026-06-15"), which are parsed as
+// UTC midnight and carry no time. Formatting them in UTC is what keeps the day
+// from shifting; do NOT use this for real timestamps.
 export function formatDate(date: Date): string {
   return new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
     timeZone: 'UTC',
+  }).format(date)
+}
+
+// For actual instants — createdAt, paidAt, trialEndsAt. Rendered in the
+// viewer's own timezone, so an invoice created at 5pm in California reads as
+// that day rather than the next one.
+export function formatTimestamp(date: Date): string {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
   }).format(date)
 }
 

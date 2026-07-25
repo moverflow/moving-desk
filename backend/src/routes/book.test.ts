@@ -45,6 +45,7 @@ const TENANT = {
   slug: 'best-movers-llc',
   baseRates: { studio: 280, '1br': 380, '2br': 480, '3br': 620, house: 850 },
   packingFee: 120,
+  timezone: 'America/Los_Angeles',
 }
 
 const validBooking = {
@@ -96,7 +97,7 @@ describe('GET /book/:slug/availability', () => {
     expect(res.status).toBe(200)
     const body = (await res.json()) as { availableDates: string[] }
     expect(body.availableDates).toEqual(['2026-07-15', '2026-07-16'])
-    expect(getAvailabilityMock).toHaveBeenCalledWith(TENANT.id, '2026-07')
+    expect(getAvailabilityMock).toHaveBeenCalledWith(TENANT.id, '2026-07', TENANT.timezone)
   })
 
   it('returns 400 for an invalid month format', async () => {

@@ -1,6 +1,7 @@
 import { and, count, eq, gte, inArray, lte } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { clients, crews, orders, tenants } from '../db/schema.js'
+import { getTenantToday, resolveTimezone } from '../lib/timezone.js'
 import type { HomeSize, TenantSettings } from '../types/index.js'
 
 const ACTIVE_ORDER_STATUSES = ['new', 'confirmed', 'in_progress'] as const
@@ -23,6 +24,7 @@ export interface PublicTenant {
   slug: string
   baseRates: TenantSettings['baseRates']
   packingFee: number
+  timezone: string
 }
 
 export async function getPublicTenant(slug: string): Promise<PublicTenant | null> {
@@ -52,15 +54,12 @@ export async function getPublicTenant(slug: string): Promise<PublicTenant | null
     slug: tenant.slug,
     baseRates: { ...DEFAULT_BASE_RATES, ...settings.baseRates },
     packingFee: settings.packingFee ?? DEFAULT_PACKING_FEE,
+    timezone: resolveTimezone(settings.timezone),
   }
 }
 
 function daysInMonth(year: number, month: number): number {
   return new Date(Date.UTC(year, month, 0)).getUTCDate()
-}
-
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10)
 }
 
 async function countActiveCrews(tenantId: string): Promise<number> {
@@ -71,7 +70,13 @@ async function countActiveCrews(tenantId: string): Promise<number> {
   return row?.value ?? 0
 }
 
-export async function getAvailability(tenantId: string, month: string): Promise<string[]> {
+// timezone decides where "today" ends — without it a Pacific tenant loses the
+// current day from their public calendar at 5pm local.
+export async function getAvailability(
+  tenantId: string,
+  month: string,
+  timezone: string,
+): Promise<string[]> {
   const [yearStr, monthStr] = month.split('-')
   const year = Number(yearStr)
   const monthNum = Number(monthStr)
@@ -96,7 +101,7 @@ export async function getAvailability(tenantId: string, month: string): Promise<
     .groupBy(orders.move_date)
 
   const bookedByDate = new Map(rows.map((r) => [r.moveDate, r.value]))
-  const today = todayIso()
+  const today = getTenantToday(timezone)
 
   const available: string[] = []
   for (let day = 1; day <= total; day++) {
@@ -107,8 +112,12 @@ export async function getAvailability(tenantId: string, month: string): Promise<
   return available
 }
 
-export async function isDateAvailable(tenantId: string, date: string): Promise<boolean> {
-  if (date < todayIso()) return false
+export async function isDateAvailable(
+  tenantId: string,
+  date: string,
+  timezone: string,
+): Promise<boolean> {
+  if (date < getTenantToday(timezone)) return false
 
   const crewCount = await countActiveCrews(tenantId)
   if (crewCount === 0) return false
@@ -181,7 +190,7 @@ export async function createBooking(
   tenant: PublicTenant,
   input: BookingInput
 ): Promise<CreatedBooking | null> {
-  const available = await isDateAvailable(tenant.id, input.moveDate)
+  const available = await isDateAvailable(tenant.id, input.moveDate, tenant.timezone)
   if (!available) return null
 
   const clientId = await findOrCreateBookingClient(

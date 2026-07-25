@@ -1,7 +1,7 @@
 import type { JSX } from 'react'
 import { useState } from 'react'
 import type { Invoice } from '@/types'
-import { formatDate } from '@/lib/utils'
+import { formatTimestamp } from '@/lib/utils'
 import { useSendInvoice } from '@/hooks/useInvoices'
 import { useSettings } from '@/hooks/useSettings'
 import { ApiError } from '@/lib/api'
@@ -47,7 +47,7 @@ export default function InvoiceDetail({ invoice }: { invoice: Invoice }): JSX.El
     <div className="p-6 space-y-5 max-w-2xl">
       <div>
         <h2 className="text-lg font-semibold">{invoice.number}</h2>
-        <p className="text-sm text-gray-500">Created {formatDate(new Date(invoice.createdAt))}</p>
+        <p className="text-sm text-gray-500">Created {formatTimestamp(new Date(invoice.createdAt))}</p>
       </div>
       <div className="grid grid-cols-2 gap-6 text-sm">
         <div>
