@@ -142,6 +142,7 @@ export interface Settings {
   logoUrl: string | null
   timezone: string
   baseRates: Record<string, number>
+  packingFee: number
   phone: string | null
   slug: string
   bookingEnabled: boolean

@@ -29,6 +29,7 @@ export default function CompanyTab(): JSX.Element {
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [rates, setRates] = useState<Record<string, number>>({ studio: 280, '1br': 380, '2br': 480, '3br': 620, house: 850 })
+  const [packingFee, setPackingFee] = useState(120)
   const [contractTerms, setContractTerms] = useState('')
   const initialized = useRef(false)
   const isReadOnly = sub?.status !== 'trialing' && sub?.status !== 'active'
@@ -40,6 +41,7 @@ export default function CompanyTab(): JSX.Element {
       setPhone(settings.phone ?? '')
       setTimezone(settings.timezone)
       setRates({ ...settings.baseRates })
+      setPackingFee(settings.packingFee)
       setContractTerms(settings.contractTerms ?? '')
       if (settings.logoUrl) setLogoUrl(settings.logoUrl)
     }
@@ -52,7 +54,7 @@ export default function CompanyTab(): JSX.Element {
       finalLogoUrl = result.url
       setLogoFile(null)
     }
-    await save({ companyName: name, phone: phone.trim() || null, timezone, logoUrl: finalLogoUrl, baseRates: rates, contractTerms: contractTerms.trim() || null })
+    await save({ companyName: name, phone: phone.trim() || null, timezone, logoUrl: finalLogoUrl, baseRates: rates, packingFee, contractTerms: contractTerms.trim() || null })
   }
 
   const isPending = isSaving || isUploading
@@ -87,7 +89,13 @@ export default function CompanyTab(): JSX.Element {
           </SelectContent>
         </Select>
       </div>
-      <BaseRatesFields rates={rates} onChange={(k, v) => setRates((p) => ({ ...p, [k]: v }))} disabled={isReadOnly} />
+      <BaseRatesFields
+        rates={rates}
+        onChange={(k, v) => setRates((p) => ({ ...p, [k]: v }))}
+        packingFee={packingFee}
+        onPackingFeeChange={setPackingFee}
+        disabled={isReadOnly}
+      />
       <div className="space-y-1.5">
         <Label htmlFor="contractTerms">Contract terms (optional)</Label>
         <Textarea

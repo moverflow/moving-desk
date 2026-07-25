@@ -1,32 +1,33 @@
-import { describe, it, expect, beforeEach } from 'vitest'
-import { ACTIVE_RATES } from '@/lib/pricing'
-import { calculatePrice } from '@/lib/pricing'
+import { describe, it, expect } from 'vitest'
+import { DEFAULT_PRICING, calculatePrice, type Pricing } from '@/lib/pricing'
 
-// AC2 — base rates update reflects in price calculation
-describe('ACTIVE_RATES and calculatePrice (AC2)', () => {
-  const originalStudio = ACTIVE_RATES.studio
-
-  beforeEach(() => {
-    // restore after mutation tests
-    ACTIVE_RATES.studio = originalStudio
-  })
+// AC2 — the tenant's configured rates reflect in the price preview
+describe('tenant pricing and calculatePrice (AC2)', () => {
+  const custom: Pricing = {
+    baseRates: { ...DEFAULT_PRICING.baseRates, studio: 350 },
+    packingFee: 200,
+  }
 
   it('default rates are correct', () => {
-    expect(ACTIVE_RATES.studio).toBe(280)
-    expect(ACTIVE_RATES['1br']).toBe(380)
-    expect(ACTIVE_RATES['2br']).toBe(480)
-    expect(ACTIVE_RATES['3br']).toBe(620)
-    expect(ACTIVE_RATES.house).toBe(850)
+    expect(DEFAULT_PRICING.baseRates.studio).toBe(280)
+    expect(DEFAULT_PRICING.baseRates['1br']).toBe(380)
+    expect(DEFAULT_PRICING.baseRates['2br']).toBe(480)
+    expect(DEFAULT_PRICING.baseRates['3br']).toBe(620)
+    expect(DEFAULT_PRICING.baseRates.house).toBe(850)
+    expect(DEFAULT_PRICING.packingFee).toBe(120)
   })
 
-  it('AC2 — mutating ACTIVE_RATES changes calculatePrice output', () => {
-    ACTIVE_RATES.studio = 350
-    expect(calculatePrice('studio', false)).toBe(350)
+  it('AC2 — a custom base rate changes calculatePrice output', () => {
+    expect(calculatePrice('studio', false, custom)).toBe(350)
   })
 
-  it('AC2 — packing adds $120 on top of updated rate', () => {
-    ACTIVE_RATES.studio = 350
-    expect(calculatePrice('studio', true)).toBe(470)
+  it('AC2 — a custom packing fee is added on top of the custom rate', () => {
+    expect(calculatePrice('studio', true, custom)).toBe(550)
+  })
+
+  it('AC2 — tenant pricing does not leak between calls', () => {
+    calculatePrice('studio', true, custom)
+    expect(calculatePrice('studio', true)).toBe(400)
   })
 })
 

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Settings, TeamMember, Subscription } from '@/types'
 import { apiFetch, apiUpload } from '@/lib/api'
-import { ACTIVE_RATES } from '@/lib/pricing'
+import type { Pricing } from '@/lib/pricing'
 
 interface RawTeamMember {
   id: string
@@ -13,26 +13,32 @@ interface RawTeamMember {
 export function useSettings() {
   return useQuery<Settings>({
     queryKey: ['settings'],
-    queryFn: async () => {
-      const data = await apiFetch<Settings>('/settings')
-      if (data.baseRates) Object.assign(ACTIVE_RATES, data.baseRates)
-      return data
-    },
+    queryFn: () => apiFetch<Settings>('/settings'),
+  })
+}
+
+// Tenant pricing for any authenticated role. Separate from useSettings because
+// GET /settings is owner-only, but dispatchers also need real rates to preview
+// an order price that matches what the backend will actually charge.
+export function usePricing() {
+  return useQuery<Pricing>({
+    queryKey: ['pricing'],
+    queryFn: () => apiFetch<Pricing>('/settings/pricing'),
   })
 }
 
 export function useUpdateSettings() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (data: Partial<Settings>) => {
-      const updated = await apiFetch<Settings>('/settings', {
+    mutationFn: (data: Partial<Settings>) =>
+      apiFetch<Settings>('/settings', {
         method: 'PATCH',
         body: JSON.stringify(data),
-      })
-      if (updated.baseRates) Object.assign(ACTIVE_RATES, updated.baseRates)
-      return updated
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['settings'] })
+      void queryClient.invalidateQueries({ queryKey: ['pricing'] })
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['settings'] }),
   })
 }
 

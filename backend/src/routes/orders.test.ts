@@ -32,14 +32,21 @@ vi.mock('../db/index.js', () => ({
 }))
 
 const getOrderByIdMock = vi.fn()
+const createOrderMock = vi.fn()
+const findOrCreateClientMock = vi.fn()
 vi.mock('../services/orders.service.js', () => ({
-  createOrder: vi.fn(),
-  findOrCreateClient: vi.fn(),
+  createOrder: (...args: unknown[]) => createOrderMock(...args),
+  findOrCreateClient: (...args: unknown[]) => findOrCreateClientMock(...args),
   getOrderById: (...args: unknown[]) => getOrderByIdMock(...args),
-  getTenantBaseRates: vi.fn(),
   isValidTransition: vi.fn(),
   listOrders: vi.fn(),
   updateOrder: vi.fn(),
+  sendOrderCompletedEmail: vi.fn(),
+}))
+
+const getTenantPricingMock = vi.fn()
+vi.mock('../services/settings.service.js', () => ({
+  getTenantPricing: (...args: unknown[]) => getTenantPricingMock(...args),
 }))
 
 const countOrderFilesMock = vi.fn()
@@ -91,6 +98,9 @@ const order = { id: ORDER_ID, tenant_id: TENANT_A, status: 'new' }
 
 beforeEach(() => {
   getOrderByIdMock.mockReset()
+  createOrderMock.mockReset()
+  findOrCreateClientMock.mockReset()
+  getTenantPricingMock.mockReset()
   countOrderFilesMock.mockReset()
   listOrderFilesMock.mockReset()
   createOrderFileRecordMock.mockReset()
@@ -100,6 +110,104 @@ beforeEach(() => {
   deleteOrderFileMock.mockReset()
   resolveOrderFileUrlMock.mockClear()
   sendContractForOrderMock.mockReset()
+})
+
+describe('POST /orders — pricing', () => {
+  const DEFAULT_PRICING = {
+    baseRates: { studio: 280, '1br': 380, '2br': 480, '3br': 620, house: 850 },
+    packingFee: 120,
+  }
+
+  function body(overrides: Record<string, unknown> = {}): string {
+    return JSON.stringify({
+      clientPhone: '(949) 555-0100',
+      clientName: 'Rick Adams',
+      fromAddress: '123 Oak St, Irvine, CA',
+      toAddress: '456 Pine Ave, Anaheim, CA',
+      moveDate: '2026-08-14',
+      homeSize: '2br',
+      ...overrides,
+    })
+  }
+
+  async function post(payload: string): Promise<Response> {
+    return app.request('/orders', {
+      method: 'POST',
+      headers: { Cookie: await authCookie(), 'Content-Type': 'application/json' },
+      body: payload,
+    })
+  }
+
+  function pricingArgs(): { basePrice: number; totalPrice: number } {
+    const call = createOrderMock.mock.calls[0][0] as { basePrice: number; totalPrice: number }
+    return { basePrice: call.basePrice, totalPrice: call.totalPrice }
+  }
+
+  beforeEach(() => {
+    findOrCreateClientMock.mockResolvedValue('client-1')
+    createOrderMock.mockResolvedValue({ id: ORDER_ID })
+    getTenantPricingMock.mockResolvedValue(DEFAULT_PRICING)
+  })
+
+  it('adds the packing fee in DOLLARS, not cents (regression: 480 + 12000)', async () => {
+    const res = await post(body({ packing: true }))
+
+    expect(res.status).toBe(201)
+    expect(pricingArgs()).toEqual({ basePrice: 480, totalPrice: 600 })
+  })
+
+  it('never produces a five-figure total for a 2BR move with packing', async () => {
+    await post(body({ packing: true }))
+    expect(pricingArgs().totalPrice).toBeLessThan(1000)
+  })
+
+  it('charges base rate only when packing is not requested', async () => {
+    const res = await post(body({ packing: false }))
+
+    expect(res.status).toBe(201)
+    expect(pricingArgs()).toEqual({ basePrice: 480, totalPrice: 480 })
+  })
+
+  it("uses the tenant's custom packing fee", async () => {
+    getTenantPricingMock.mockResolvedValue({ ...DEFAULT_PRICING, packingFee: 200 })
+
+    await post(body({ packing: true }))
+
+    expect(pricingArgs()).toEqual({ basePrice: 480, totalPrice: 680 })
+  })
+
+  it("uses the tenant's custom base rates", async () => {
+    getTenantPricingMock.mockResolvedValue({
+      baseRates: { ...DEFAULT_PRICING.baseRates, house: 900 },
+      packingFee: 150,
+    })
+
+    await post(body({ homeSize: 'house', packing: true }))
+
+    expect(pricingArgs()).toEqual({ basePrice: 900, totalPrice: 1050 })
+  })
+
+  it('honours a packing fee of 0 instead of falling back to the default', async () => {
+    getTenantPricingMock.mockResolvedValue({ ...DEFAULT_PRICING, packingFee: 0 })
+
+    await post(body({ packing: true }))
+
+    expect(pricingArgs()).toEqual({ basePrice: 480, totalPrice: 480 })
+  })
+
+  it('prices from the requesting tenant only', async () => {
+    await post(body({ packing: true }))
+    expect(getTenantPricingMock).toHaveBeenCalledWith(TENANT_A)
+  })
+
+  it('matches the public booking page for the same inputs', async () => {
+    // booking.service.ts computes basePrice + (packing ? packingFee : 0) from
+    // the same tenant settings; the two paths must not diverge.
+    await post(body({ homeSize: '3br', packing: true }))
+
+    const { baseRates, packingFee } = DEFAULT_PRICING
+    expect(pricingArgs().totalPrice).toBe(baseRates['3br'] + packingFee)
+  })
 })
 
 describe('POST /orders/:id/send-contract', () => {
