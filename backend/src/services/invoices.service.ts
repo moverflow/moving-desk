@@ -3,6 +3,7 @@ import { db } from '../db/index.js'
 import { clients, invoices, orders, tenants } from '../db/schema.js'
 import { env } from '../lib/env.js'
 import { stripe } from '../lib/stripe.js'
+import { createNotification } from './notifications.service.js'
 
 function formatMoveDate(moveDate: string): string {
   return new Intl.DateTimeFormat('en-US', {
@@ -209,6 +210,7 @@ export interface PaidInvoiceInfo {
 async function getPaidInvoiceEmailData(invoiceId: string) {
   const [row] = await db
     .select({
+      tenantId: invoices.tenant_id,
       number: invoices.number,
       moveDate: orders.move_date,
       clientEmail: clients.email,
@@ -249,6 +251,16 @@ export async function markInvoicePaidFromSession(params: {
 
   const row = await getPaidInvoiceEmailData(params.invoiceId)
   if (!row) return null
+
+  // Behind the status guard above, so a webhook replay does not notify twice.
+  await createNotification({
+    tenantId: row.tenantId,
+    type: 'invoice_paid',
+    title: `Invoice ${row.number} paid`,
+    body: `$${(paidAmount ?? 0).toLocaleString('en-US')} received${row.clientName ? ` from ${row.clientName}` : ''}`,
+    relatedType: 'invoice',
+    relatedId: params.invoiceId,
+  })
 
   return {
     number: row.number,

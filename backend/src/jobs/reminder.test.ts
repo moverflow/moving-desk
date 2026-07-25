@@ -48,6 +48,13 @@ vi.mock('../lib/logger.js', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), error: vi.fn(), warn: vi.fn() },
 }))
 
+// Mocked rather than left to run against the db fake above, whose reads follow a
+// fixed queued sequence that a real dedupe lookup would consume.
+const createNotificationOnceMock = vi.fn()
+vi.mock('../services/notifications.service.js', () => ({
+  createNotificationOnce: (...args: unknown[]) => createNotificationOnceMock(...args),
+}))
+
 const { sendDailyReminders, sendUncontactedLeadReminders } = await import('./reminder.js')
 
 function eqPairs(node: unknown, pairs: Array<{ column: string; value: unknown }> = []): Array<{ column: string; value: unknown }> {
@@ -105,6 +112,8 @@ beforeEach(() => {
   sendMoveReminderEmailMock.mockResolvedValue(undefined)
   sendLeadReminderEmailMock.mockReset()
   sendLeadReminderEmailMock.mockResolvedValue(undefined)
+  createNotificationOnceMock.mockReset()
+  createNotificationOnceMock.mockResolvedValue(undefined)
 })
 
 afterEach(() => {
@@ -230,12 +239,97 @@ describe('sendDailyReminders', () => {
   })
 
   it('AC4-equivalent — skips an order whose client has no email and does not mark it', async () => {
-    selectQueue.push([orderRow()], [{ name: 'Jane', email: null }])
+    selectQueue.push(
+      [orderRow()],
+      [{ name: 'Jane', email: null }],
+      [{ name: 'Acme', settings: { ...LA } }],
+    )
 
     await sendDailyReminders()
 
     expect(sendMoveReminderEmailMock).not.toHaveBeenCalled()
     expect(updateCalls).toEqual([])
+  })
+
+  describe('in-app notification', () => {
+    it('AC1 — raises a deduped, tenant-scoped notification for the owner', async () => {
+      selectQueue.push(
+        [orderRow()],
+        [{ name: 'Jane', email: 'jane@example.com' }],
+        [{ name: 'Acme Movers', settings: { ...LA } }],
+      )
+
+      await sendDailyReminders()
+
+      expect(createNotificationOnceMock).toHaveBeenCalledWith({
+        tenantId: TENANT_A,
+        type: 'move_reminder',
+        title: 'Move tomorrow: Jane',
+        body: '1 Main St → 2 Oak Ave',
+        relatedType: 'order',
+        relatedId: 'order-1',
+      })
+    })
+
+    // reminder_sent only flips after a successful send, so with email broken the
+    // owner would otherwise learn nothing at all.
+    it('AC1 — notifies even when the client has no email to send to', async () => {
+      selectQueue.push(
+        [orderRow()],
+        [{ name: 'Jane', email: null }],
+        [{ name: 'Acme', settings: { ...LA } }],
+      )
+
+      await sendDailyReminders()
+
+      expect(sendMoveReminderEmailMock).not.toHaveBeenCalled()
+      expect(createNotificationOnceMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('AC1 — notifies even when the email send fails', async () => {
+      selectQueue.push(
+        [orderRow()],
+        [{ name: 'Jane', email: 'jane@example.com' }],
+        [{ name: 'Acme', settings: { ...LA } }],
+      )
+      sendMoveReminderEmailMock.mockRejectedValueOnce(new Error('send failed'))
+
+      await sendDailyReminders()
+
+      expect(createNotificationOnceMock).toHaveBeenCalledTimes(1)
+      expect(updateCalls).toEqual([])
+    })
+
+    it('does not notify for a move that is not tomorrow in the tenant\'s zone', async () => {
+      selectQueue.push(
+        [orderRow({ moveDate: UTC_TOMORROW })],
+        [{ name: 'Jane', email: 'jane@example.com' }],
+        [{ name: 'Acme', settings: { ...LA } }],
+      )
+
+      await sendDailyReminders()
+
+      expect(createNotificationOnceMock).not.toHaveBeenCalled()
+    })
+
+    it('does not stop the run when the notification write fails', async () => {
+      selectQueue.push(
+        [orderRow({ orderId: 'order-1', clientId: 'client-1' }), orderRow({ orderId: 'order-2', clientId: 'client-2' })],
+        [{ name: 'First', email: 'first@example.com' }],
+        [{ name: 'Acme', settings: { ...LA } }],
+        [{ name: 'Second', email: 'second@example.com' }],
+        [{ name: 'Acme', settings: { ...LA } }],
+      )
+      createNotificationOnceMock.mockRejectedValueOnce(new Error('notification failed'))
+
+      await sendDailyReminders()
+
+      // The first order is lost to the throw, but the second still gets its email.
+      expect(sendMoveReminderEmailMock).toHaveBeenCalledTimes(1)
+      expect(sendMoveReminderEmailMock).toHaveBeenCalledWith(
+        expect.objectContaining({ to: 'second@example.com' }),
+      )
+    })
   })
 
   it('skips an order with no client at all', async () => {

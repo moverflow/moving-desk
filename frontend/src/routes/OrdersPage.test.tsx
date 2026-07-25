@@ -53,14 +53,14 @@ const MOCK_ORDERS: Order[] = [
   },
 ]
 
-function renderOrders() {
+function renderOrders(entry = '/orders') {
   vi.mocked(useOrders).mockReturnValue({ data: MOCK_ORDERS, isLoading: false } as ReturnType<typeof useOrders>)
   vi.mocked(useUpdateOrderStatus).mockReturnValue({ mutate: vi.fn(), isPending: false } as unknown as ReturnType<typeof useUpdateOrderStatus>)
   vi.mocked(useCrews).mockReturnValue({ data: [] } as unknown as ReturnType<typeof useCrews>)
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={['/orders']}>
+      <MemoryRouter initialEntries={[entry]}>
         <Routes>
           <Route path="/orders" element={<OrdersPage />} />
         </Routes>
@@ -96,6 +96,29 @@ describe('OrdersPage', () => {
     fireEvent.click(screen.getByText('Rick Adams'))
     await waitFor(() => {
       expect(screen.getAllByText('Rick Adams').length).toBeGreaterThan(1)
+    })
+  })
+
+  // Deep link used by notifications and the contract-signed email.
+  it('AC3 — ?order=<id> opens that order\'s detail sheet', async () => {
+    renderOrders('/orders?order=order-2')
+    await waitFor(() => {
+      expect(screen.getAllByText('Tom Wilson').length).toBeGreaterThan(1)
+    })
+    expect(screen.getAllByText('Rick Adams')).toHaveLength(1)
+  })
+
+  it('AC3 — an unknown ?order=<id> opens nothing', async () => {
+    renderOrders('/orders?order=does-not-exist')
+    await waitFor(() => screen.getByText('Rick Adams'))
+    expect(screen.getAllByText('Rick Adams')).toHaveLength(1)
+    expect(screen.getAllByText('Tom Wilson')).toHaveLength(1)
+  })
+
+  it('AC3 — ?tab=leads opens the leads pipeline', async () => {
+    renderOrders('/orders?tab=leads')
+    await waitFor(() => {
+      expect(screen.queryByText('In progress')).not.toBeInTheDocument()
     })
   })
 })

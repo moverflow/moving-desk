@@ -376,3 +376,72 @@ The task's "Backend" section only says to add `phone` to PATCH/GET, but the fron
 - PR: https://github.com/moverflow/moving-desk/pull/22
 
 ---
+
+## audit/10-in-app-notifications — Analysis (2026-07-25)
+
+### What is being built
+A parallel, in-app notification channel that does not depend on email delivery. A new
+`notifications` table, rows written at four existing trigger points (new lead/booking,
+contract signed, invoice paid, 24h owner reminder), three REST endpoints to read/mark
+them, and a bell icon + dropdown panel in the frontend AppShell that polls for updates.
+Purely additive — no existing email logic is touched.
+
+### Who uses it
+Owner and dispatcher (authenticated web app users). Explicitly NOT crew (crew PWA is out
+of scope) and NOT public/clients (no accounts). Notifications are tenant-scoped, not
+per-user — every logged-in user of a tenant sees the same list (task says "for the
+tenant's owner", and specifies no per-user targeting or preferences).
+
+### DB tables touched
+New table `notifications` only: `id, tenant_id, type, title, body, related_entity(+id),
+read_at, created_at`. No changes to existing tables. Read-only reference to
+orders/invoices/leads via the related-entity pointer (no FK enforcement needed since the
+pointer is polymorphic).
+
+### Tenant isolation requirements
+- `notifications.tenant_id UUID NOT NULL`, same as every other table.
+- `GET /notifications` filters by `ctx.tenantId`.
+- `POST /notifications/:id/read` must use `and(eq(id), eq(tenant_id))` — never id alone,
+  otherwise a user of tenant A could flip a row belonging to tenant B.
+- `POST /notifications/read-all` scoped to `ctx.tenantId`.
+- Creation sites must pass the tenant_id already available at that call site (booking,
+  contract, invoice, reminder job all know it).
+
+### Trigger points (verified to exist)
+- `src/routes/book.ts` / `src/routes/leads.ts` — new lead/booking
+- `src/services/contract.service.ts:244` — `sendContractSignedNotification(...)`
+- `src/services/invoices.service.ts:230` — `markInvoicePaidFromSession(...)`, called from
+  `src/services/billing.service.ts:117` (Stripe webhook path)
+- `src/jobs/reminder.ts` — 24h move reminder, owner-facing case only
+
+### Acceptance criteria (verbatim from task)
+1. Submitting a booking, signing a contract, and paying an invoice each produce a visible
+   in-app notification for the tenant's owner, without requiring email to work.
+2. Notifications are tenant-scoped (no cross-tenant leakage).
+3. Unread count updates; clicking a notification marks it read and navigates to the
+   relevant record.
+4. Tests for notification creation at each trigger point and for tenant isolation on GET.
+
+### Assumptions (requirements are thin in these spots)
+- A1: Notification creation is fire-and-forget — wrapped so a DB error is logged and
+  swallowed, never propagated. This is explicit in the task (§Backend.4) and is the same
+  posture the existing email calls already take.
+- A2: `related_entity` is modelled as two columns (`related_type` + `related_id`) rather
+  than one opaque string, so the frontend can build the correct route without parsing.
+- A3: Notification `title`/`body` are rendered server-side at creation time (denormalised
+  snapshot), not templated at read time. Simpler and matches the email payloads.
+- A4: Polling interval 30s via TanStack Query `refetchInterval`.
+- A5: "Paginated" = `limit`/`offset` (or cursor) query params with a sane default (e.g.
+  20); the dropdown shows the most recent page only, no infinite scroll.
+- A6: No per-user read state — `read_at` is a single column on the row, so one user
+  marking read marks it read for the whole tenant. Per-user read tracking would need a
+  join table and is not asked for.
+
+### Risks
+- R1: The Stripe webhook path (invoice paid) must not fail if notification insert throws —
+  a thrown error there could cause Stripe to retry the webhook and double-process.
+- R2: `jobs/reminder.ts` runs outside a request context; needs tenant_id sourced from the
+  order row, not from a ctx.
+- R3: The public booking route (`routes/book.ts`) is unauthenticated — tenant_id must come
+  from the resolved booking-page tenant, never from client input.
+

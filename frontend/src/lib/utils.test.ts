@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatDate, formatTimestamp, getAllTimezones, getGroupedTimezones } from './utils'
+import { formatDate, formatRelativeTime, formatTimestamp, getAllTimezones, getGroupedTimezones } from './utils'
 
 describe('getAllTimezones', () => {
   it('returns a non-empty array including America/New_York and Europe/London', () => {
@@ -68,5 +68,30 @@ describe('formatDate vs formatTimestamp', () => {
     } else {
       expect(asLocal).toBe(asUtc)
     }
+  })
+})
+
+describe('formatRelativeTime', () => {
+  const NOW = new Date('2026-07-25T12:00:00Z')
+
+  it('reads as "just now" under a minute', () => {
+    expect(formatRelativeTime(new Date('2026-07-25T11:59:31Z'), NOW)).toBe('just now')
+  })
+
+  it('counts whole minutes under an hour', () => {
+    expect(formatRelativeTime(new Date('2026-07-25T11:35:00Z'), NOW)).toBe('25m ago')
+  })
+
+  it('counts whole hours under a day', () => {
+    expect(formatRelativeTime(new Date('2026-07-25T09:00:00Z'), NOW)).toBe('3h ago')
+  })
+
+  it('counts whole days under a week', () => {
+    expect(formatRelativeTime(new Date('2026-07-23T12:00:00Z'), NOW)).toBe('2d ago')
+  })
+
+  it('falls back to a real date past a week', () => {
+    const old = new Date('2026-07-01T12:00:00Z')
+    expect(formatRelativeTime(old, NOW)).toBe(formatTimestamp(old))
   })
 })

@@ -1,7 +1,24 @@
 import { and, desc, eq, ilike, or } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { clients, leads, orders, tenants } from '../db/schema.js'
+import { createNotification } from './notifications.service.js'
 import type { HomeSize, LeadSource, LeadStatus } from '../types/index.js'
+
+const LEAD_SOURCE_LABELS: Record<LeadSource, string> = {
+  manual: 'manually',
+  booking_page: 'from the booking page',
+  zapier: 'via Zapier',
+  phone: 'by phone',
+}
+
+// Lead phones arrive unvalidated from the booking page and Zapier, so anything
+// that is not a US 10-digit number is shown exactly as it was given.
+function formatLeadPhone(phone: string | null): string | null {
+  if (!phone) return null
+  const digits = phone.replace(/\D/g, '')
+  if (digits.length !== 10) return phone
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+}
 
 export interface CreateLeadInput {
   name: string
@@ -44,6 +61,21 @@ export async function createLead(tenantId: string, createdBy: string | null, inp
       created_by: createdBy,
     })
     .returning()
+
+  // Covers all three entry points — the public booking page, the Zapier webhook
+  // and manual entry — since every one of them lands here.
+  const source = input.source ?? 'manual'
+  await createNotification({
+    tenantId: tenantId,
+    type: 'lead_new',
+    title: `New lead: ${lead.name}`,
+    body: [formatLeadPhone(lead.phone), `Added ${LEAD_SOURCE_LABELS[source]}`]
+      .filter(Boolean)
+      .join(' · '),
+    relatedType: 'lead',
+    relatedId: lead.id,
+  })
+
   return lead
 }
 

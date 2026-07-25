@@ -5,6 +5,7 @@ import { env } from '../lib/env.js'
 import { sendLeadReminderEmail, sendMoveReminderEmail } from '../lib/email.js'
 import { logger } from '../lib/logger.js'
 import { addDays, getTenantTomorrow } from '../lib/timezone.js'
+import { createNotificationOnce } from '../services/notifications.service.js'
 import type { TenantSettings } from '../types/index.js'
 
 function formatMoveDate(moveDate: string): string {
@@ -23,6 +24,72 @@ function formatMoveDate(moveDate: string): string {
 function candidateWindow(now: Date = new Date()): { from: string; to: string } {
   const utcToday = now.toISOString().slice(0, 10)
   return { from: utcToday, to: addDays(utcToday, 2) }
+}
+
+interface CandidateOrder {
+  orderId: string
+  tenantId: string
+  moveDate: string
+  fromAddress: string
+  toAddress: string
+  clientId: string | null
+}
+
+async function remindOneOrder(order: CandidateOrder): Promise<void> {
+  if (!order.clientId) return
+
+  const [client] = await db
+    .select({ name: clients.name, email: clients.email })
+    .from(clients)
+    .where(and(eq(clients.id, order.clientId), eq(clients.tenant_id, order.tenantId)))
+    .limit(1)
+
+  const [tenant] = await db
+    .select({ name: tenants.name, settings: tenants.settings })
+    .from(tenants)
+    .where(eq(tenants.id, order.tenantId))
+    .limit(1)
+
+  if (!tenant) return
+
+  const settings = (tenant.settings ?? {}) as Partial<TenantSettings>
+
+  // "Your move is tomorrow" must mean tomorrow where the customer lives,
+  // not wherever the server's clock happens to have rolled over to.
+  if (order.moveDate !== getTenantTomorrow(settings.timezone)) return
+
+  // Ahead of the client-email guard on purpose: the owner's in-app heads-up
+  // must not depend on the customer having an email address, or on the send
+  // succeeding. reminder_sent only flips after a successful send, so this
+  // order is re-examined on every run until then — hence the dedupe.
+  await createNotificationOnce({
+    tenantId: order.tenantId,
+    type: 'move_reminder',
+    title: `Move tomorrow: ${client?.name ?? 'client'}`,
+    body: `${order.fromAddress} → ${order.toAddress}`,
+    relatedType: 'order',
+    relatedId: order.orderId,
+  })
+
+  if (!client?.email) return
+
+  await sendMoveReminderEmail({
+    to: client.email,
+    clientName: client.name,
+    companyName: tenant.name,
+    companyPhone: settings.phone ?? null,
+    moveDate: formatMoveDate(order.moveDate),
+    fromAddress: order.fromAddress,
+    toAddress: order.toAddress,
+  })
+
+  // Mark as reminded only after a successful send to prevent duplicates.
+  await db
+    .update(orders)
+    .set({ reminder_sent: true })
+    .where(and(eq(orders.id, order.orderId), eq(orders.tenant_id, order.tenantId)))
+
+  logger.info({ orderId: order.orderId, clientEmail: client.email }, 'Reminder sent successfully')
 }
 
 export async function sendDailyReminders(): Promise<void> {
@@ -53,47 +120,7 @@ export async function sendDailyReminders(): Promise<void> {
 
   for (const order of ordersToRemind) {
     try {
-      if (!order.clientId) continue
-
-      const [client] = await db
-        .select({ name: clients.name, email: clients.email })
-        .from(clients)
-        .where(and(eq(clients.id, order.clientId), eq(clients.tenant_id, order.tenantId)))
-        .limit(1)
-
-      if (!client?.email) continue
-
-      const [tenant] = await db
-        .select({ name: tenants.name, settings: tenants.settings })
-        .from(tenants)
-        .where(eq(tenants.id, order.tenantId))
-        .limit(1)
-
-      if (!tenant) continue
-
-      const settings = (tenant.settings ?? {}) as Partial<TenantSettings>
-
-      // "Your move is tomorrow" must mean tomorrow where the customer lives,
-      // not wherever the server's clock happens to have rolled over to.
-      if (order.moveDate !== getTenantTomorrow(settings.timezone)) continue
-
-      await sendMoveReminderEmail({
-        to: client.email,
-        clientName: client.name,
-        companyName: tenant.name,
-        companyPhone: settings.phone ?? null,
-        moveDate: formatMoveDate(order.moveDate),
-        fromAddress: order.fromAddress,
-        toAddress: order.toAddress,
-      })
-
-      // Mark as reminded only after a successful send to prevent duplicates.
-      await db
-        .update(orders)
-        .set({ reminder_sent: true })
-        .where(and(eq(orders.id, order.orderId), eq(orders.tenant_id, order.tenantId)))
-
-      logger.info({ orderId: order.orderId, clientEmail: client.email }, 'Reminder sent successfully')
+      await remindOneOrder(order)
     } catch (err) {
       logger.error({ err, orderId: order.orderId }, 'Failed to send reminder for order')
       // Continue with next order — don't stop the whole job.

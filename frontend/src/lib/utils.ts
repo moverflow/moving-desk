@@ -28,6 +28,24 @@ export function formatTimestamp(date: Date): string {
   }).format(date)
 }
 
+// Compact relative time for notification rows: "just now", "5m", "3h", "2d".
+// Anything older than a week reads better as a real date.
+export function formatRelativeTime(date: Date, now: Date = new Date()): string {
+  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+  if (seconds < 60) return 'just now'
+
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `${days}d ago`
+
+  return formatTimestamp(date)
+}
+
 export function formatPhone(phone: string): string {
   const digits = phone.replace(/\D/g, '')
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`
