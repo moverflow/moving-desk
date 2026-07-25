@@ -28,6 +28,9 @@ const schema = z.object({
   R2_BUCKET_NAME: z.string().default(''),
   R2_PUBLIC_URL: z.string().default(''),
   ANTHROPIC_API_KEY: z.string().default(''),
+  // Error tracking. Unset means Sentry stays disabled and the app runs
+  // normally — deliberately not a hard startup failure like the R2 config.
+  SENTRY_DSN: z.string().default(''),
 })
 
 export const env = schema.parse(process.env)

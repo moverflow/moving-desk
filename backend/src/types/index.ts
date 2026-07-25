@@ -22,6 +22,7 @@ export type AppVariables = {
   role: string
   plan: string
   crewId: string | null
+  requestId: string
 }
 
 export interface JwtPayload {
