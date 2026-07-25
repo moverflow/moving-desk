@@ -4,7 +4,10 @@ import 'dotenv/config'
 const schema = z.object({
   DATABASE_URL: z.string().min(1),
   JWT_SECRET: z.string().min(32),
-  JWT_EXPIRES_IN: z.string().default('7d'),
+  // Kept short because authMiddleware now re-checks the account on every
+  // request; /auth/me re-issues so active sessions are not cut off. Must stay
+  // in step with AUTH_COOKIE_MAX_AGE_SECONDS in lib/authCookie.ts.
+  JWT_EXPIRES_IN: z.string().default('1d'),
   RESEND_API_KEY: z.string().min(1),
   // Sender for all outbound mail. Must be an address on a Resend-verified
   // domain. Defaults to Resend's shared testing sender, which needs no

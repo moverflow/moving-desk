@@ -20,6 +20,11 @@ vi.mock('../db/index.js', () => ({
   db: { select: vi.fn(), insert: vi.fn(), update: vi.fn() },
 }))
 
+vi.mock('../services/auth.service.js', async () => {
+  const { getAuthContextMock } = await import('../test/authContext.js')
+  return { getAuthContext: getAuthContextMock }
+})
+
 const createLeadMock = vi.fn()
 const listLeadsMock = vi.fn()
 const getLeadMock = vi.fn()
@@ -39,6 +44,7 @@ vi.mock('../services/leads.service.js', () => ({
 
 const { default: leadsRouter } = await import('./leads.js')
 const { signToken } = await import('../lib/jwt.js')
+const { setAuthContext } = await import('../test/authContext.js')
 
 const app = new Hono<{ Variables: AppVariables }>().route('/leads', leadsRouter)
 
@@ -48,6 +54,7 @@ const LEAD_ID = '33333333-3333-3333-3333-333333333333'
 const WEBHOOK_SECRET = 'webhook-secret-token-123456'
 
 async function authCookie(): Promise<string> {
+  setAuthContext({ userId: USER_A, tenantId: TENANT_A, role: 'dispatcher', plan: 'basic', crewId: null })
   const token = await signToken({ sub: USER_A, tenantId: TENANT_A, role: 'dispatcher', plan: 'basic' })
   return `token=${token}`
 }

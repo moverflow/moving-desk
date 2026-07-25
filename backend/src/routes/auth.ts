@@ -1,8 +1,7 @@
 import bcrypt from 'bcryptjs'
 import { Hono } from 'hono'
-import { getCookie, setCookie } from 'hono/cookie'
-import type { Context } from 'hono'
 import { z } from 'zod'
+import { clearAuthCookie, setAuthCookie } from '../lib/authCookie.js'
 import { sendWelcomeEmail } from '../lib/email.js'
 import { signToken } from '../lib/jwt.js'
 import { authMiddleware } from '../middleware/auth.js'
@@ -42,16 +41,6 @@ const loginSchema = z.object({
   password: z.string().min(1),
 })
 
-// The token backing the current request — cookie first, Bearer header fallback
-// (iOS Safari). Used so /auth/me can re-hand the token back to the client.
-function getRequestToken(c: Context): string | null {
-  const cookie = getCookie(c, 'token')
-  if (cookie) return cookie
-  const authHeader = c.req.header('Authorization')
-  if (authHeader?.startsWith('Bearer ')) return authHeader.slice(7)
-  return null
-}
-
 const auth = new Hono<{ Variables: AppVariables }>()
 
 auth.post('/register', registerRateLimit, async (c) => {
@@ -87,13 +76,7 @@ auth.post('/register', registerRateLimit, async (c) => {
 
   sendWelcomeEmail(email, name)
 
-  setCookie(c, 'token', jwt, {
-    httpOnly: true,
-    sameSite: 'None',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 7,
-    secure: true,
-  })
+  setAuthCookie(c, jwt)
 
   return c.json(
     {
@@ -158,13 +141,7 @@ auth.post('/login', loginRateLimit, async (c) => {
     crewId: row.crew_id ?? undefined,
   })
 
-  setCookie(c, 'token', jwt, {
-    httpOnly: true,
-    sameSite: 'None',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 7,
-    secure: true,
-  })
+  setAuthCookie(c, jwt)
 
   return c.json({
     user: {
@@ -187,6 +164,20 @@ auth.post('/login', loginRateLimit, async (c) => {
 auth.get('/me', authMiddleware, async (c) => {
   const data = await getMeData(c.get('userId'), c.get('tenantId'))
   if (!data) return c.json({ error: 'Not found' }, 404)
+
+  // Sliding session: the app calls /me on load, so re-issuing here keeps an
+  // active user signed in despite the now much shorter token lifetime. Safe
+  // because authMiddleware re-checks the account on every request, so a longer
+  // effective session no longer means a longer window of stale authorisation.
+  const jwt = await signToken({
+    sub: data.userId,
+    tenantId: data.tenantId,
+    role: data.userRole as UserRole,
+    plan: (data.tenantPlan ?? 'trial') as Plan,
+    crewId: data.userCrewId ?? undefined,
+  })
+  setAuthCookie(c, jwt)
+
   return c.json({
     user: {
       id: data.userId,
@@ -197,18 +188,12 @@ auth.get('/me', authMiddleware, async (c) => {
       crewName: data.userCrewName ?? null,
     },
     tenant: { id: data.tenantId, name: data.tenantName, plan: data.tenantPlan ?? 'trial' },
-    token: getRequestToken(c),
+    token: jwt,
   })
 })
 
 auth.post('/logout', authMiddleware, async (c) => {
-  setCookie(c, 'token', '', {
-    httpOnly: true,
-    sameSite: 'None',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 7,
-    secure: true,
-  })
+  clearAuthCookie(c)
   return c.json({ message: 'Logged out' })
 })
 
