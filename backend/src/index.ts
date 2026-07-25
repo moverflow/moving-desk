@@ -1,8 +1,14 @@
+// Must be the first import: ESM evaluates a module's imports in source order,
+// so this initialises Sentry before ./app.js and its route tree are loaded.
+import { initSentry, installProcessErrorHandlers } from './lib/sentry.js'
 import { serve } from '@hono/node-server'
 import app from './app.js'
 import { env } from './lib/env.js'
 import { logger } from './lib/logger.js'
 import { assertStorageConfigured } from './lib/r2.js'
+
+initSentry()
+installProcessErrorHandlers()
 
 try {
   assertStorageConfigured()
