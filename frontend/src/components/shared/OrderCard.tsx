@@ -2,13 +2,16 @@ import type { JSX } from 'react'
 import type { Order, OrderStatus } from '@/types'
 import { formatDate } from '@/lib/utils'
 
-const STATUS_BORDER: Record<OrderStatus, string> = {
+// Left-edge accent so a column is scannable at a glance. Green is reserved for
+// completed work, so in-progress takes violet rather than reading as done.
+// Stock Tailwind scale values, matching the palette used elsewhere in the app.
+export const STATUS_BORDER: Record<OrderStatus, string> = {
   new: 'border-l-blue-400',
   confirmed: 'border-l-amber-400',
-  in_progress: 'border-l-green-500',
-  completed: 'border-l-gray-400',
+  in_progress: 'border-l-violet-500',
+  completed: 'border-l-green-500',
   closed: 'border-l-gray-400',
-  cancelled: 'border-l-gray-300',
+  cancelled: 'border-l-red-400',
 }
 
 export const HOME_SIZE_LABEL: Record<string, string> = {
