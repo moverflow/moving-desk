@@ -445,3 +445,16 @@ pointer is polymorphic).
 - R3: The public booking route (`routes/book.ts`) is unauthenticated — tenant_id must come
   from the resolved booking-page tenant, never from client input.
 
+## audit/10-in-app-notifications — DONE (2026-07-25) — PR pending
+
+- Branch: feat/in-app-notifications (pushed; PR not opened — `gh` token invalid)
+- Tests: backend 298 passed / 7 pre-existing Postgres-gated skips (unrelated); frontend 200 passed. New: `routes/notifications.test.ts` (14), `services/notifications.service.test.ts` (13), `services/contract.service.test.ts` (6, new file), `services/invoices.service.test.ts` (4, new file), plus additions to `leads.service.test.ts`, `jobs/reminder.test.ts`, `OrdersPage.test.tsx`, `lib/utils.test.ts`, and `NotificationBell.test.tsx` (10) + `useNotifications.test.ts` (4). typecheck/lint/build clean both sides.
+- Review cycles: 1 — two issues found and fixed:
+  1. Validation: lead notification body rendered a raw phone (`9496329557`) instead of the required `(949) 632-9557`. Added a local `formatLeadPhone` that leaves non-10-digit input untouched (booking page and Zapier accept arbitrary strings).
+  2. Review: `NotificationBell` was 86 lines and `sendDailyReminders` 94 (already over before this change). Extracted `NotificationPanel` and `remindOneOrder`.
+  A third bug was caught by the tests themselves: `LEAD_SOURCE_LABELS.manual` was `'added manually'` under an `Added ${...}` template → "Added added manually".
+- Key structural finding: `sendDailyReminders` only flips `reminder_sent` after a successful email send, and the `!client?.email` guard sat above the timezone check — so a notification placed after either would never be created while email is broken, defeating the purpose. Tenant lookup + timezone check moved above the email guard; notification deduped on (tenant_id, type, related_id) rather than `reminder_sent`. Email behaviour unchanged.
+- Deviations: `related_entity` split into `related_type` + `related_id`; hooked `createLead()` instead of the two routes (single choke point for all three lead sources); `?order=` / `?invoice=` deep links wired to satisfy the "navigates to the relevant record" AC — `?order=` was already used by the contract-signed email but `OrdersPage` never read it.
+- Open questions left for the reviewer: notifications are tenant-scoped rather than per-user (read state is shared); `GET /notifications` is reachable by a `crew` token, matching every other resource route.
+
+---
