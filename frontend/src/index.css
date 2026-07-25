@@ -24,11 +24,19 @@
   --radius: 0.5rem;
 }
 
-*,
-::before,
-::after {
-  box-sizing: border-box;
-  border-color: var(--color-border);
+/*
+  Must stay inside @layer base. Tailwind emits every utility into
+  @layer utilities, and unlayered CSS beats layered CSS no matter the
+  specificity or order — so as a bare rule this silently overrode every
+  border-<color> utility in the app, painting them all the same grey.
+*/
+@layer base {
+  *,
+  ::before,
+  ::after {
+    box-sizing: border-box;
+    border-color: var(--color-border);
+  }
 }
 
 body {
