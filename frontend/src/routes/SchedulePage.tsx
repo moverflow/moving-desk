@@ -193,12 +193,16 @@ export default function SchedulePage(): JSX.Element {
         <ViewToggle view={view} onChange={handleViewChange} />
       </div>
 
-      <ScheduleCalendar
-        isLoading={isLoading}
-        events={events}
-        calendarRef={calendarRef}
-        onEventClick={handleEventClick}
-      />
+      <div className="overflow-x-auto">
+        <div className="min-w-[640px]">
+          <ScheduleCalendar
+            isLoading={isLoading}
+            events={events}
+            calendarRef={calendarRef}
+            onEventClick={handleEventClick}
+          />
+        </div>
+      </div>
 
       {selected && <OrderDetailPanel order={selected} onClose={() => setSelected(null)} />}
     </div>
