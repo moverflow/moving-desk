@@ -737,3 +737,148 @@ tenant-scoped at the API level); ordering key is Stripe's own `customer_id`.
   had no way to identify which invoice to poll otherwise.
 
 ---
+
+## audit/13-mobile-responsiveness — Analysis (2026-08-01)
+
+### What is being built
+Responsive fixes for six owner-facing frontend surfaces so they're usable at
+375–430px viewport widths, without touching the (already-responsive) Crew PWA or
+changing desktop layout. Pure frontend/CSS-and-layout work — no backend, no DB.
+
+### Who uses it
+Owner and dispatcher, on their own phones — same auth/role gating as today, this
+task changes no access control, only layout.
+
+### DB tables touched
+None.
+
+### Verified against the current code (not just the task's description)
+- `AppShell.tsx`: header is `px-8`, nav is a flat `<nav className="flex ...">` with
+  up to 7 `NavTab`s (5 base + Dashboard + Settings for owner), labels
+  `hidden sm:inline` but icons alone still don't fit width-wise with the wordmark +
+  NotificationBell + UserMenu at 375px. No mobile nav exists at all today.
+- `InvoicesPage.tsx`: `flex h-[calc(100vh-60px)]` with `<aside className="w-72">` —
+  a fixed 288px sidebar leaves ~87px for the detail pane at 375px, confirmed.
+- `SettingsPage.tsx`: `TabsList` (shadcn, `inline-flex`, no wrap/scroll built in)
+  holds 6 `TabsTrigger`s with no `overflow-x-auto` wrapper — will overflow, not
+  wrap, at 375px. Card uses a fixed `padding: '28px 32px'` inline style.
+  `NewOrderPage.tsx` uses the exact same `cardStyle` object (copy-pasted).
+- `PageContainer.tsx`: fixed `paddingLeft/Right: 32` inline styles, no breakpoints
+  — confirmed zero responsive behavior, used by SettingsPage/NewOrderPage/
+  InvoicesPage's detail pane.
+- `ClientsPage.tsx`: plain `<table>`, 5 columns (Name/Phone/Last move/Orders/
+  actions), no wrapper — will overflow at 375px since HTML tables don't reflow.
+  Header row (search input + button) is an unconstrained `flex` that could also
+  overflow with both at full/max-width.
+- `SchedulePage.tsx`: FullCalendar `timeGridWeek` (7-day grid + its own internal
+  prev/next/today/title toolbar) has no width accommodation for mobile at all.
+- The Orders Kanban (`OrdersPage.tsx:48-49`) already does exactly the reference
+  pattern the task names: `<div className="overflow-x-auto"><div className="flex
+  gap-4 min-w-[800px]">`.
+
+### Acceptance criteria (verbatim)
+1. Each listed page usable (no cut-off content, no unreachable controls, no
+   horizontal overflow of the whole page) at 375px.
+2. AppShell nav fully usable (all items reachable) at iPhone widths.
+3. Before/after screenshots at 375px for each page in the PR description.
+
+### Plan per file
+- **AppShell**: `hidden sm:flex` on the existing desktop `<nav>`; new hamburger
+  button (`sm:hidden`) opening a `Sheet` (`side="left"`, already used elsewhere in
+  this codebase for OrderDetailSheet/ClientDetailSheet) listing every nav item
+  stacked vertically with labels always visible — chosen over a bottom tab bar
+  because 7 items (owner) don't fit a bottom bar without hiding some, and a
+  hamburger+drawer needs no per-item priority decisions or new "more" menu
+  concept. Header padding `px-4 sm:px-8`.
+- **InvoicesPage**: on mobile, show the list OR the detail (not both) based on
+  selection — list is the default view; selecting an invoice shows the detail
+  pane with a `sm:hidden` "← Back" button that clears selection. `sm:` and up:
+  unchanged side-by-side. This is the "collapsible" option the task offers, not
+  the "stack vertically" one — a stacked full list + full detail on one scrolling
+  page would be usable but poor UX for no added cost to implement the toggle
+  instead.
+- **SettingsPage**: wrap `TabsList` in `overflow-x-auto` (Kanban's own pattern);
+  card padding moves from the fixed inline style to `p-4 sm:px-8 sm:py-7`.
+- **NewOrderPage**: same card-padding fix; `AddressFields`/`FloorElevatorSection`
+  (the actual `grid-cols-2` fields rendered inside this page) get
+  `grid-cols-1 sm:grid-cols-2` — not listed by name in the task, but they're
+  NewOrderPage's own content, so fixing the page means fixing these.
+- **ClientsPage**: header row `flex-col sm:flex-row`; table wrapped in
+  `overflow-x-auto` (same Kanban-style horizontal-scroll reference pattern the
+  task explicitly says to reuse "where a fixed-width layout can't reasonably
+  reflow" — a data table is exactly that case, not a candidate for a full
+  card-list redesign in this task's scope).
+- **SchedulePage**: FullCalendar wrapped in `overflow-x-auto` + a `min-w-[...]`
+  inner container, same reasoning — a 7-column week grid can't reflow to a single
+  column without changing the view entirely (out of scope: "do not redesign
+  desktop layouts").
+- **PageContainer**: fixed inline `paddingLeft/Right: 32` → `px-4 sm:px-8`
+  Tailwind classes (keeps the existing `maxWidth` variant logic, which is
+  numeric-px-driven and stays as inline style).
+
+### Risks
+- R1: Screenshot capture requires a running dev server + browser automation
+  (Playwright/Chrome DevTools viewport emulation) — not just a code read. Must
+  actually launch the app and resize to 375px before/after, per this session's
+  standing instruction for UI changes ("start the dev server and use the feature
+  in a browser before reporting complete").
+- R2: AppShell's mobile drawer must reuse the exact same `NAV_ITEMS` array (not a
+  second hand-maintained list) so it can never drift from the desktop nav.
+
+## audit/13-mobile-responsiveness — DONE (2026-07-26) — PR pending
+
+- Branch: fix/mobile-responsiveness (pushed; PR not opened — `gh` token invalid,
+  same keyring issue as the last three tasks)
+- Implementation matched the analysis plan: `MobileNavDrawer.tsx` (new) + hidden
+  desktop `<nav>` below `sm:` in `AppShell.tsx`; `InvoicesPage.tsx`'s
+  `mobileShowDetail` state toggles list vs. detail on mobile with a "← Back to
+  invoices" button; `SettingsPage`'s `TabsList` wrapped in `overflow-x-auto`;
+  `ClientsPage`'s table wrapped the same way (`min-w-[560px]`); `SchedulePage`'s
+  FullCalendar wrapped in `overflow-x-auto` + `min-w-[640px]`;
+  `NewOrderPage`/`AddressFields`/`FloorElevatorSection`'s `grid-cols-2` → 
+  `grid-cols-1 sm:grid-cols-2`; `PageContainer`'s fixed 32px inline padding →
+  `px-4 sm:px-8` Tailwind classes.
+- Validation: spun up an isolated local Postgres (never touched the real
+  `backend/.env`, which points at what looks like a live production Neon DB with
+  real Stripe/Resend/R2 keys — registered/seeded only against the throwaway local
+  one), started both dev servers, and used Playwright (installed fresh — no
+  `chromium-cli` available in this environment) to register a test tenant, seed
+  it via the task-11 seed script, and screenshot all 6 pages at a 375×812
+  viewport. Confirmed the "before" bugs exactly as described (nav icons +
+  bell/user-menu overflowing off-screen; invoices detail pane reduced to a
+  cut-off ~87px sliver; Settings tabs hard-clipped with Booking/Integrations
+  unreachable; Clients table + header overflowing the whole page horizontally)
+  and confirmed each is fixed after. Also drove the interaction, not just the
+  static layout: opened the mobile nav drawer (all 7 items present, tapping one
+  closes it), tapped an invoice into detail view and back out via the Back
+  button, with real seeded data (client names, invoice statuses, addresses).
+  13 screenshots (6 before + 7 after, including the drawer-open and
+  invoice-detail states) committed to `docs/screenshots/mobile-responsiveness/`
+  for the PR body, per the acceptance criteria's explicit ask.
+- Tests: frontend 210 passed (was 206) — new `MobileNavDrawer.test.tsx` (3:
+  closed by default, opens and lists every passed-in item, closes on nav click)
+  and a new `InvoicesPage.test.tsx` case asserting the actual `hidden`/`block`
+  className toggling on the aside/main elements around a click + Back-button
+  cycle (jsdom doesn't apply the real Tailwind stylesheet, so `toBeVisible()`
+  can't observe the CSS effect directly — asserting on the class names the
+  component computes from `mobileShowDetail` is what's actually being tested,
+  same convention this codebase already uses elsewhere for conditional
+  rendering). All 5 pre-existing page test files pass unchanged. typecheck/lint/
+  build clean.
+- Review cycle: 1 (self-review against 40-line rule) — `MobileNavDrawer` (42),
+  `ClientsPage` (51) and `InvoicesPage`'s render tree (was 131, nearly all of it
+  the return statement) were over. Extracted `DrawerNavLinks`, `ClientsTable`,
+  and — for InvoicesPage — `InvoiceListPane`/`InvoiceGenerateControls`/
+  `InvoiceDetailPane`, bringing every render-side function under 40. Left
+  `InvoicesPage`'s own function at 88 lines: after the extraction it's almost
+  entirely pre-existing hook/business logic (eligible-order computation,
+  generate handler, deep-link effect) that predates this task and has nothing to
+  do with mobile layout — refactoring that is a separate, riskier change this
+  task didn't ask for. No `any`, no `console.log`, no new tenant-isolation
+  surface (frontend-only, no new API calls).
+- Deviations: chose a hamburger + `Sheet` drawer over a bottom tab bar for
+  AppShell — 7 items (owner) don't fit a bottom bar without hiding some, and the
+  drawer needed no per-item priority decisions; `Sheet` was already the
+  established pattern for slide-over panels in this codebase.
+
+---

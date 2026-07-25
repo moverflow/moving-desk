@@ -3,6 +3,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { CalendarDays, Kanban, LayoutDashboard, Plus, Receipt, Users, Settings as SettingsIcon, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth.store'
+import MobileNavDrawer, { type MobileNavItem } from '@/components/shared/MobileNavDrawer'
 import NotificationBell from '@/components/shared/NotificationBell'
 import TrialBanner from '@/components/shared/TrialBanner'
 import UserMenu from '@/components/shared/UserMenu'
@@ -20,6 +21,14 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/invoices', label: 'Invoices', Icon: Receipt },
   { to: '/clients', label: 'Clients', Icon: Users },
 ]
+
+function buildMobileNavItems(isOwner: boolean): MobileNavItem[] {
+  return [
+    ...(isOwner ? [{ to: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard }] : []),
+    ...NAV_ITEMS,
+    ...(isOwner ? [{ to: '/settings', label: 'Settings', Icon: SettingsIcon }] : []),
+  ]
+}
 
 function NavTab({ to, label, Icon }: NavItem): JSX.Element {
   return (
@@ -40,23 +49,27 @@ function NavTab({ to, label, Icon }: NavItem): JSX.Element {
 
 export default function AppShell(): JSX.Element {
   const { user } = useAuthStore()
+  const isOwner = user?.role === 'owner'
 
   return (
     <div className="min-h-screen flex flex-col">
       <header
-        className="h-[60px] flex items-center justify-between px-8 sticky top-0 bg-white z-10"
+        className="h-[60px] flex items-center justify-between gap-2 px-4 sm:px-8 sticky top-0 bg-white z-10"
         style={{ borderBottom: '0.5px solid #e5e7eb' }}
       >
-        <span
-          className="text-base font-semibold select-none"
-          style={{ letterSpacing: '-0.01em' }}
-        >
-          Moving<strong style={{ color: '#1d9e75' }}>Desk</strong>
-        </span>
-        <nav className="flex items-center gap-0.5">
-          {user?.role === 'owner' && <NavTab to="/dashboard" label="Dashboard" Icon={LayoutDashboard} />}
+        <div className="flex items-center gap-2">
+          <MobileNavDrawer items={buildMobileNavItems(isOwner)} />
+          <span
+            className="text-base font-semibold select-none"
+            style={{ letterSpacing: '-0.01em' }}
+          >
+            Moving<strong style={{ color: '#1d9e75' }}>Desk</strong>
+          </span>
+        </div>
+        <nav className="hidden sm:flex items-center gap-0.5">
+          {isOwner && <NavTab to="/dashboard" label="Dashboard" Icon={LayoutDashboard} />}
           {NAV_ITEMS.map((item) => <NavTab key={item.to} {...item} />)}
-          {user?.role === 'owner' && <NavTab to="/settings" label="Settings" Icon={SettingsIcon} />}
+          {isOwner && <NavTab to="/settings" label="Settings" Icon={SettingsIcon} />}
         </nav>
         <div className="flex items-center gap-1.5">
           <NotificationBell />

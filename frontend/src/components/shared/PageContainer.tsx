@@ -15,13 +15,8 @@ export default function PageContainer({ children, variant = 'default' }: PageCon
   const maxWidth = MAX_WIDTH[variant]
   return (
     <div
-      style={{
-        maxWidth: maxWidth !== undefined ? maxWidth : undefined,
-        margin: '0 auto',
-        paddingLeft: 32,
-        paddingRight: 32,
-        width: '100%',
-      }}
+      className="mx-auto w-full px-4 sm:px-8"
+      style={{ maxWidth: maxWidth !== undefined ? maxWidth : undefined }}
     >
       {children}
     </div>

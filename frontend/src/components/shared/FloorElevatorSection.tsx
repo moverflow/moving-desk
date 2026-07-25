@@ -12,7 +12,7 @@ interface FloorElevatorSectionProps {
 export default function FloorElevatorSection({ form, set }: FloorElevatorSectionProps): JSX.Element {
   return (
     <>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label htmlFor="fromFloor">From floor</Label>
           <Input id="fromFloor" type="number" min={1} value={form.fromFloor} onChange={(e) => set('fromFloor', parseInt(e.target.value, 10) || 1)} />

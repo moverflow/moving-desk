@@ -159,4 +159,28 @@ describe('InvoicesPage', () => {
       expect(screen.getByRole('button', { name: /copy share link/i })).toBeInTheDocument()
     })
   })
+
+  it('mobile — selecting an invoice reveals the detail pane and hides the list; Back reverses it', async () => {
+    const { container } = renderInvoices()
+    await waitFor(() => expect(screen.getAllByText('INV-1089').length).toBeGreaterThan(0))
+
+    const aside = container.querySelector('aside')
+    const main = container.querySelector('main')
+    expect(aside).not.toBeNull()
+    expect(main).not.toBeNull()
+
+    // A default-selected invoice (invoices[0]) is shown in the detail pane's
+    // markup, but nothing has been explicitly tapped yet — on mobile the list
+    // should still be what's visible, not the detail.
+    expect(aside!.className).not.toContain('hidden')
+    expect(main!.className).toContain('hidden')
+
+    fireEvent.click(screen.getByText('INV-1088'))
+    await waitFor(() => expect(main!.className).not.toContain('hidden'))
+    expect(aside!.className).toContain('hidden')
+
+    fireEvent.click(screen.getByRole('button', { name: /back to invoices/i }))
+    await waitFor(() => expect(aside!.className).not.toContain('hidden'))
+    expect(main!.className).toContain('hidden')
+  })
 })
