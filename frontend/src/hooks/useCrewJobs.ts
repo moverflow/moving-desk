@@ -40,12 +40,23 @@ function mapJob(raw: RawCrewJob): CrewJob {
   }
 }
 
+export interface CrewJobsResponse {
+  jobs: CrewJob[]
+  // The day boundary the server used, in the tenant's timezone. Taken from the
+  // response rather than recomputed here, so the section labels can never
+  // disagree with the jobs that were actually fetched.
+  today: string
+  tomorrow: string
+}
+
 export function useCrewJobs() {
-  return useQuery<CrewJob[]>({
+  return useQuery<CrewJobsResponse>({
     queryKey: ['crew-jobs'],
     queryFn: async () => {
-      const data = await apiFetch<{ jobs: RawCrewJob[] }>('/crew/jobs')
-      return data.jobs.map(mapJob)
+      const data = await apiFetch<{ jobs: RawCrewJob[]; today: string; tomorrow: string }>(
+        '/crew/jobs',
+      )
+      return { jobs: data.jobs.map(mapJob), today: data.today, tomorrow: data.tomorrow }
     },
   })
 }

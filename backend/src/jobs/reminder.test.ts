@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The reminder job issues a fixed sequence of reads: one orders query, then per
 // order a clients query and a tenants query. Tests queue the rows each read
@@ -76,11 +76,18 @@ function eqPairs(node: unknown, pairs: Array<{ column: string; value: unknown }>
 
 const TENANT_A = '11111111-1111-1111-1111-111111111111'
 
+// 6pm Pacific on 14 Aug 2026, which is already 01:00 UTC on the 15th — the
+// window where a UTC-based "tomorrow" is a day ahead of the customer's.
+const EVENING_IN_LA = new Date('2026-08-15T01:00:00Z')
+const LA_TOMORROW = '2026-08-15'
+const UTC_TOMORROW = '2026-08-16'
+const LA = { timezone: 'America/Los_Angeles' }
+
 function orderRow(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     orderId: 'order-1',
     tenantId: TENANT_A,
-    moveDate: '2026-07-18',
+    moveDate: LA_TOMORROW,
     fromAddress: '1 Main St',
     toAddress: '2 Oak Ave',
     clientId: 'client-1',
@@ -89,6 +96,8 @@ function orderRow(overrides: Record<string, unknown> = {}): Record<string, unkno
 }
 
 beforeEach(() => {
+  vi.useFakeTimers()
+  vi.setSystemTime(EVENING_IN_LA)
   selectQueue.length = 0
   whereConds.length = 0
   updateCalls.length = 0
@@ -98,12 +107,16 @@ beforeEach(() => {
   sendLeadReminderEmailMock.mockResolvedValue(undefined)
 })
 
+afterEach(() => {
+  vi.useRealTimers()
+})
+
 describe('sendDailyReminders', () => {
   it('AC9/AC11 — sends a reminder for a matching order and marks reminder_sent', async () => {
     selectQueue.push(
       [orderRow()],
       [{ name: 'Jane', email: 'jane@example.com' }],
-      [{ name: 'Acme Movers', settings: { phone: '(949) 555-0100' } }],
+      [{ name: 'Acme Movers', settings: { phone: '(949) 555-0100', ...LA } }],
     )
 
     await sendDailyReminders()
@@ -122,28 +135,89 @@ describe('sendDailyReminders', () => {
     expect(updateCalls).toEqual([{ values: { reminder_sent: true } }])
   })
 
-  it('AC9/AC10/AC13 — orders query filters by tomorrow, confirmed, and not-yet-reminded', async () => {
-    const tomorrow = new Date()
-    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1)
-    const expected = tomorrow.toISOString().split('T')[0]
-
+  it('AC10/AC13 — candidate query still filters by confirmed and not-yet-reminded', async () => {
     selectQueue.push([])
     await sendDailyReminders()
 
-    const pairs = eqPairs(whereConds[0])
-    const byColumn = Object.fromEntries(pairs.map((p) => [p.column, p.value]))
-    expect(byColumn.move_date).toBe(expected)
+    const byColumn = Object.fromEntries(eqPairs(whereConds[0]).map((p) => [p.column, p.value]))
     expect(byColumn.status).toBe('confirmed')
     expect(byColumn.reminder_sent).toBe(false)
+  })
+
+  it('queries a window wide enough to cover every timezone\'s tomorrow', async () => {
+    selectQueue.push([])
+    await sendDailyReminders()
+
+    // Tenant-local dates sit within a day either side of the UTC date, so the
+    // window must span UTC today..today+2 for the per-tenant filter to see them.
+    const moveDates = eqPairs(whereConds[0])
+      .filter((p) => p.column === 'move_date')
+      .map((p) => p.value)
+    expect(moveDates).toContain('2026-08-15')
+    expect(moveDates).toContain('2026-08-17')
+  })
+
+  it('sends for a move that is tomorrow in the tenant\'s timezone', async () => {
+    selectQueue.push(
+      [orderRow({ moveDate: LA_TOMORROW })],
+      [{ name: 'Jane', email: 'jane@example.com' }],
+      [{ name: 'Acme', settings: { ...LA } }],
+    )
+
+    await sendDailyReminders()
+
+    expect(sendMoveReminderEmailMock).toHaveBeenCalledTimes(1)
+    expect(updateCalls).toEqual([{ values: { reminder_sent: true } }])
+  })
+
+  it('does NOT send a day early for a Pacific tenant when UTC has already rolled over', async () => {
+    // The old UTC-based job treated 2026-08-16 as "tomorrow" at this instant and
+    // emailed the customer a day before their move.
+    selectQueue.push(
+      [orderRow({ moveDate: UTC_TOMORROW })],
+      [{ name: 'Jane', email: 'jane@example.com' }],
+      [{ name: 'Acme', settings: { ...LA } }],
+    )
+
+    await sendDailyReminders()
+
+    expect(sendMoveReminderEmailMock).not.toHaveBeenCalled()
+    expect(updateCalls).toEqual([])
+  })
+
+  it('uses each tenant\'s own zone — the same move date differs by tenant', async () => {
+    // A UTC tenant at this instant genuinely has 2026-08-16 as tomorrow.
+    selectQueue.push(
+      [orderRow({ moveDate: UTC_TOMORROW })],
+      [{ name: 'Jane', email: 'jane@example.com' }],
+      [{ name: 'Acme UTC', settings: { timezone: 'UTC' } }],
+    )
+
+    await sendDailyReminders()
+
+    expect(sendMoveReminderEmailMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('falls back to the default zone when a tenant has none set', async () => {
+    // America/New_York on 2026-08-14 21:00 local — tomorrow is the 15th.
+    selectQueue.push(
+      [orderRow({ moveDate: LA_TOMORROW })],
+      [{ name: 'Jane', email: 'jane@example.com' }],
+      [{ name: 'Acme', settings: {} }],
+    )
+
+    await sendDailyReminders()
+
+    expect(sendMoveReminderEmailMock).toHaveBeenCalledTimes(1)
   })
 
   it('AC12 — one failing email does not stop the rest of the run', async () => {
     selectQueue.push(
       [orderRow({ orderId: 'order-1', clientId: 'client-1' }), orderRow({ orderId: 'order-2', clientId: 'client-2' })],
       [{ name: 'First', email: 'first@example.com' }],
-      [{ name: 'Acme', settings: {} }],
+      [{ name: 'Acme', settings: { ...LA } }],
       [{ name: 'Second', email: 'second@example.com' }],
-      [{ name: 'Acme', settings: {} }],
+      [{ name: 'Acme', settings: { ...LA } }],
     )
     sendMoveReminderEmailMock.mockRejectedValueOnce(new Error('send failed'))
 

@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { tenants } from '../db/schema.js'
+import { resolveTimezone } from '../lib/timezone.js'
 import type { TenantSettings } from '../types/index.js'
 
 const DEFAULT_SETTINGS: TenantSettings = {
@@ -32,6 +33,18 @@ export async function getTenantPricing(tenantId: string): Promise<TenantPricing>
     baseRates: { ...DEFAULT_SETTINGS.baseRates, ...settings.baseRates },
     packingFee: settings.packingFee ?? DEFAULT_SETTINGS.packingFee,
   }
+}
+
+// The zone every day-boundary calculation for this tenant must use.
+export async function getTenantTimezone(tenantId: string): Promise<string> {
+  const [tenant] = await db
+    .select({ settings: tenants.settings })
+    .from(tenants)
+    .where(eq(tenants.id, tenantId))
+    .limit(1)
+
+  const settings = (tenant?.settings ?? {}) as Partial<TenantSettings>
+  return resolveTimezone(settings.timezone)
 }
 
 export async function getSettings(tenantId: string) {

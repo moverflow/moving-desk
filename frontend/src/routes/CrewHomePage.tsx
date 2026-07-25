@@ -9,11 +9,8 @@ import { useCrewJobs, useUpdateCrewJobStatus } from '@/hooks/useCrewJobs'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { formatDate } from '@/lib/utils'
 
-function isoDate(offsetDays: number): string {
-  return new Date(Date.now() + offsetDays * 86_400_000).toISOString().split('T')[0]
-}
-
 function sectionLabel(dateStr: string): string {
+  if (!dateStr) return ''
   return formatDate(new Date(`${dateStr}T00:00:00Z`))
 }
 
@@ -51,14 +48,15 @@ export default function CrewHomePage(): JSX.Element {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const isOnline = useOnlineStatus()
-  const { data: jobs = [], isLoading } = useCrewJobs()
+  const { data, isLoading } = useCrewJobs()
+  const jobs = data?.jobs ?? []
   const { mutate: updateStatus } = useUpdateCrewJobStatus()
   const { mutate: logout } = useLogout()
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const today = isoDate(0)
-  const tomorrow = isoDate(1)
+  const today = data?.today ?? ''
+  const tomorrow = data?.tomorrow ?? ''
   const todayJobs = jobs.filter((j) => j.moveDate === today)
   const tomorrowJobs = jobs.filter((j) => j.moveDate === tomorrow)
 

@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { PDFDownloadLink } from '@react-pdf/renderer'
 import type { Invoice, Company } from '@/types'
 import { Button } from '@/components/ui/button'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatCurrency, formatTimestamp } from '@/lib/utils'
 import { useCreatePaymentLink } from '@/hooks/useInvoices'
 import InvoiceDocument from './InvoiceDocument'
 import InvoiceMoveDetails from './InvoiceMoveDetails'
@@ -38,7 +38,7 @@ export default function PublicInvoiceContent({ invoice, company }: PublicInvoice
           <p className="text-sm text-gray-500">Invoice</p>
           <p className="text-xl font-bold">{invoice.number}</p>
         </div>
-        <p className="text-sm text-gray-500">{formatDate(new Date(invoice.createdAt))}</p>
+        <p className="text-sm text-gray-500">{formatTimestamp(new Date(invoice.createdAt))}</p>
       </div>
       <div className="text-sm border-t pt-4">
         <p className="font-medium">{invoice.clientName} · {invoice.clientPhone}</p>
@@ -49,7 +49,7 @@ export default function PublicInvoiceContent({ invoice, company }: PublicInvoice
         <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-center">
           <p className="font-semibold text-green-700">✅ Payment received</p>
           {invoice.paidAt && (
-            <p className="text-sm text-green-600">Paid on {formatDate(new Date(invoice.paidAt))}</p>
+            <p className="text-sm text-green-600">Paid on {formatTimestamp(new Date(invoice.paidAt))}</p>
           )}
         </div>
       )}

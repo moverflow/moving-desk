@@ -1,5 +1,5 @@
 import type { JSX } from 'react'
-import { formatDate } from '@/lib/utils'
+import { formatTimestamp } from '@/lib/utils'
 import { useSubscription } from '@/hooks/useSettings'
 
 const PLAN_STYLES: Record<string, string> = {
@@ -30,7 +30,7 @@ export default function BillingTab(): JSX.Element {
         </div>
         {sub?.plan === 'trial' && daysLeft !== null && (
           <p className="text-sm text-gray-600">
-            Trial ends {sub.trialEndsAt ? formatDate(new Date(sub.trialEndsAt)) : '—'} · {daysLeft} day{daysLeft !== 1 ? 's' : ''} left
+            Trial ends {sub.trialEndsAt ? formatTimestamp(new Date(sub.trialEndsAt)) : '—'} · {daysLeft} day{daysLeft !== 1 ? 's' : ''} left
           </p>
         )}
       </div>

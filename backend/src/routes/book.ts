@@ -65,7 +65,7 @@ bookRouter.get('/:slug/availability', async (c) => {
   const month = monthSchema.safeParse(c.req.query('month'))
   if (!month.success) return c.json({ error: 'Invalid month, expected YYYY-MM' }, 400)
 
-  const availableDates = await getAvailability(tenant.id, month.data)
+  const availableDates = await getAvailability(tenant.id, month.data, tenant.timezone)
   return c.json({ availableDates })
 })
 
