@@ -1,9 +1,22 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
+import { rateLimit } from '../middleware/rateLimit.js'
 import { getAvailability, getPublicTenant } from '../services/booking.service.js'
 import { createLead } from '../services/leads.service.js'
 
 const monthSchema = z.string().regex(/^\d{4}-\d{2}$/)
+
+// A real person books one move, occasionally two. Anything past this from one
+// address is scripted — and every lead also emails the owner a follow-up
+// reminder, so an unbounded endpoint is an amplification vector.
+const bookingRateLimit = rateLimit({
+  limit: 5,
+  windowMs: 60 * 60 * 1000,
+  message: 'Too many booking requests. Please try again later, or call us directly.',
+})
+
+// Humans need seconds to fill this form; bots post immediately.
+const MIN_FILL_MS = 3000
 
 const bookingSchema = z.object({
   clientName: z.string().min(2),
@@ -19,6 +32,12 @@ const bookingSchema = z.object({
   toElevator: z.boolean().default(false),
   packing: z.boolean().default(false),
   notes: z.string().optional(),
+  // Honeypot: rendered hidden, so a real user never fills it in.
+  website: z.string().optional(),
+  // Milliseconds between the form rendering and submission, reported by the
+  // client. Spoofable by a determined bot, which is fine — this is cheap
+  // filtering for commodity spam, layered under the rate limit above.
+  elapsedMs: z.number().int().nonnegative().optional(),
 })
 
 const bookRouter = new Hono()
@@ -50,7 +69,7 @@ bookRouter.get('/:slug/availability', async (c) => {
   return c.json({ availableDates })
 })
 
-bookRouter.post('/:slug', async (c) => {
+bookRouter.post('/:slug', bookingRateLimit, async (c) => {
   const tenant = await getPublicTenant(c.req.param('slug'))
   if (!tenant) return c.json({ error: 'Not found' }, 404)
 
@@ -68,6 +87,16 @@ bookRouter.post('/:slug', async (c) => {
   // Lead capture: booking-page submissions land in the dispatcher's pipeline as
   // a lead (not an auto-confirmed order). The dispatcher reviews and converts.
   const d = result.data
+
+  // Rejected rather than silently discarded: browser autofill can occasionally
+  // populate a hidden field, and a real customer who trips this must find out
+  // now instead of believing their move is booked.
+  const trippedHoneypot = d.website !== undefined && d.website.trim().length > 0
+  const submittedTooFast = d.elapsedMs !== undefined && d.elapsedMs < MIN_FILL_MS
+  if (trippedHoneypot || submittedTooFast) {
+    return c.json({ error: 'Could not submit this form. Please try again.' }, 400)
+  }
+
   const lead = await createLead(tenant.id, null, {
     name: d.clientName,
     phone: d.clientPhone,

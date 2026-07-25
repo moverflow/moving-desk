@@ -113,6 +113,18 @@ describe('GET /book/:slug/availability', () => {
   })
 })
 
+// Every POST goes through the booking rate limiter, which buckets by client IP.
+// Giving each request its own IP keeps tests independent of one another (and of
+// how many POST tests this file happens to contain).
+let ipCounter = 0
+function postHeaders(): Record<string, string> {
+  ipCounter++
+  return {
+    'Content-Type': 'application/json',
+    'x-envoy-external-address': `203.0.113.${ipCounter}`,
+  }
+}
+
 describe('POST /book/:slug', () => {
   it('AC9/AC10 — captures a lead and returns a "request received" message', async () => {
     getPublicTenantMock.mockResolvedValue(TENANT)
@@ -120,7 +132,7 @@ describe('POST /book/:slug', () => {
 
     const res = await app.request('/book/best-movers-llc', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: postHeaders(),
       body: JSON.stringify(validBooking),
     })
 
@@ -148,7 +160,7 @@ describe('POST /book/:slug', () => {
 
     const res = await app.request('/book/best-movers-llc', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: postHeaders(),
       body: JSON.stringify(noEmail),
     })
 
@@ -160,7 +172,7 @@ describe('POST /book/:slug', () => {
     getPublicTenantMock.mockResolvedValue(TENANT)
     const res = await app.request('/book/best-movers-llc', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: postHeaders(),
       body: JSON.stringify({ ...validBooking, clientName: 'J' }),
     })
     expect(res.status).toBe(400)
@@ -171,10 +183,117 @@ describe('POST /book/:slug', () => {
     getPublicTenantMock.mockResolvedValue(null)
     const res = await app.request('/book/x', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: postHeaders(),
       body: JSON.stringify(validBooking),
     })
     expect(res.status).toBe(404)
     expect(createLeadMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('POST /book/:slug — bot defenses', () => {
+  async function postFrom(ip: string, body: unknown): Promise<Response> {
+    return app.request('/book/best-movers-llc', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-envoy-external-address': ip },
+      body: JSON.stringify(body),
+    })
+  }
+
+  it('rejects a submission that filled the hidden honeypot field', async () => {
+    getPublicTenantMock.mockResolvedValue(TENANT)
+
+    const res = await postFrom('198.51.100.20', { ...validBooking, website: 'http://spam.example' })
+
+    expect(res.status).toBe(400)
+    expect(createLeadMock).not.toHaveBeenCalled()
+  })
+
+  it('accepts a submission that left the honeypot empty', async () => {
+    getPublicTenantMock.mockResolvedValue(TENANT)
+    createLeadMock.mockResolvedValue({ id: 'lead-ok' })
+
+    const res = await postFrom('198.51.100.21', { ...validBooking, website: '', elapsedMs: 9000 })
+
+    expect(res.status).toBe(201)
+    expect(createLeadMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects a submission completed faster than a human could type it', async () => {
+    getPublicTenantMock.mockResolvedValue(TENANT)
+
+    const res = await postFrom('198.51.100.22', { ...validBooking, elapsedMs: 120 })
+
+    expect(res.status).toBe(400)
+    expect(createLeadMock).not.toHaveBeenCalled()
+  })
+
+  it('accepts a realistic fill time', async () => {
+    getPublicTenantMock.mockResolvedValue(TENANT)
+    createLeadMock.mockResolvedValue({ id: 'lead-ok' })
+
+    const res = await postFrom('198.51.100.23', { ...validBooking, elapsedMs: 45_000 })
+
+    expect(res.status).toBe(201)
+    expect(createLeadMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('still accepts a client that sends neither field (no new friction)', async () => {
+    getPublicTenantMock.mockResolvedValue(TENANT)
+    createLeadMock.mockResolvedValue({ id: 'lead-ok' })
+
+    const res = await postFrom('198.51.100.24', validBooking)
+
+    expect(res.status).toBe(201)
+    expect(createLeadMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not persist a lead for a bot-shaped submission', async () => {
+    getPublicTenantMock.mockResolvedValue(TENANT)
+
+    await postFrom('198.51.100.25', { ...validBooking, website: 'x', elapsedMs: 50 })
+
+    expect(createLeadMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('POST /book/:slug — rate limiting', () => {
+  it('blocks a burst of bookings from one client IP with 429', async () => {
+    getPublicTenantMock.mockResolvedValue(TENANT)
+    createLeadMock.mockResolvedValue({ id: 'lead-x' })
+
+    const statuses: number[] = []
+    for (let i = 0; i < 7; i++) {
+      const res = await app.request('/book/best-movers-llc', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-envoy-external-address': '198.51.100.99',
+        },
+        body: JSON.stringify({ ...validBooking, elapsedMs: 9000 }),
+      })
+      statuses.push(res.status)
+    }
+
+    expect(statuses.slice(0, 5)).toEqual([201, 201, 201, 201, 201])
+    expect(statuses.slice(5)).toEqual([429, 429])
+    // The blocked requests never reached the database.
+    expect(createLeadMock).toHaveBeenCalledTimes(5)
+  })
+
+  it('does not penalise a different client IP', async () => {
+    getPublicTenantMock.mockResolvedValue(TENANT)
+    createLeadMock.mockResolvedValue({ id: 'lead-y' })
+
+    const res = await app.request('/book/best-movers-llc', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-envoy-external-address': '198.51.100.100',
+      },
+      body: JSON.stringify({ ...validBooking, elapsedMs: 9000 }),
+    })
+
+    expect(res.status).toBe(201)
   })
 })

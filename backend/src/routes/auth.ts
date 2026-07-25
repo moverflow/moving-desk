@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { sendWelcomeEmail } from '../lib/email.js'
 import { signToken } from '../lib/jwt.js'
 import { authMiddleware } from '../middleware/auth.js'
+import { rateLimit } from '../middleware/rateLimit.js'
 import {
   findUserByEmail,
   generateUniqueSlug,
@@ -15,21 +16,19 @@ import {
 } from '../services/auth.service.js'
 import type { AppVariables, Plan, UserRole } from '../types/index.js'
 
-const RATE_LIMIT_MAX = 5
-const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
+const loginRateLimit = rateLimit({
+  limit: 5,
+  windowMs: 15 * 60 * 1000,
+  message: 'Too many attempts',
+})
 
-function isRateLimited(ip: string): boolean {
-  const now = Date.now()
-  const entry = rateLimitMap.get(ip)
-  if (!entry || entry.resetAt <= now) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS })
-    return false
-  }
-  if (entry.count >= RATE_LIMIT_MAX) return true
-  entry.count++
-  return false
-}
+// Registration creates a tenant, a user, a subscription row and sends mail, so
+// legitimate use is rare — a much tighter limit than login is appropriate.
+const registerRateLimit = rateLimit({
+  limit: 3,
+  windowMs: 60 * 60 * 1000,
+  message: 'Too many registration attempts. Please try again later.',
+})
 
 const registerSchema = z.object({
   companyName: z.string().min(2).max(100),
@@ -55,7 +54,7 @@ function getRequestToken(c: Context): string | null {
 
 const auth = new Hono<{ Variables: AppVariables }>()
 
-auth.post('/register', async (c) => {
+auth.post('/register', registerRateLimit, async (c) => {
   let body: unknown
   try {
     body = await c.req.json()
@@ -117,12 +116,7 @@ auth.post('/register', async (c) => {
   )
 })
 
-auth.post('/login', async (c) => {
-  const ip = c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
-  if (isRateLimited(ip)) {
-    return c.json({ error: 'Too many attempts' }, 429)
-  }
-
+auth.post('/login', loginRateLimit, async (c) => {
   let body: unknown
   try {
     body = await c.req.json()
