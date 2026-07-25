@@ -458,3 +458,127 @@ pointer is polymorphic).
 - Open questions left for the reviewer: notifications are tenant-scoped rather than per-user (read state is shared); `GET /notifications` is reachable by a `crew` token, matching every other resource route.
 
 ---
+
+## audit/11-seed-script-flexible
+
+### What is being built
+Rework of `backend/scripts/seed-analytics.ts` so it can seed demo data for any tenant
+identified by CLI arg (slug or owner email), creating the tenant + owner if it doesn't
+exist yet, instead of aborting on a single hardcoded UUID. Also fixes three ways the
+seeded data is already stale relative to the app: invoices never get `expires_at` (public
+share link always 404s), no `leads` are seeded (Leads tab demos empty), and invoice
+numbering can collide with real invoices created after seeding.
+
+### Who uses it
+Internal only — run manually (`npm run seed -- <identifier>`) by whoever is prepping a
+demo for a pilot company. Not reachable from the app or any HTTP route.
+
+### DB tables touched
+`tenants`, `users` (create-if-missing path only), `crews`, `clients`, `orders`,
+`invoices`, `leads` (new — script previously didn't touch this table at all).
+
+### Tenant isolation requirements
+Not request-scoped (no ctx.tenantId, no JWT) — this is an offline script connecting
+directly via `pg.Pool`. The equivalent discipline here is: every insert across every
+table must carry the *same* resolved `tenant_id`, and the resolution step (slug/email →
+tenant, or create-new) must happen exactly once at the top so nothing downstream can
+accidentally target the wrong tenant.
+
+### Acceptance criteria (verbatim from task)
+1. Running the script with a new tenant slug/email creates that tenant (if needed) and
+   populates it with orders, clients, invoices (with working share links), and leads
+   across pipeline stages — usable to demo the full product to a brand-new pilot company
+   in one command.
+2. Running it again against an already-seeded tenant doesn't hard-crash or produce
+   duplicate/colliding invoice numbers.
+
+### Existing patterns to reuse (found during explore)
+- `registerTenantAndUser` (`services/auth.service.ts:95`) — transaction creating
+  tenant+user+subscription; seed's create-path should mirror shape (trial plan,
+  14-day trial) but doesn't need the Stripe customer call (out of scope, demo-only).
+- `generateUniqueSlug` / `generateSlug` (`services/auth.service.ts`) — reuse directly for
+  slug derivation from a company name when creating from an email identifier.
+- Invoice numbering: app itself uses `count(*) + 1001` per tenant
+  (`services/invoices.service.ts:26-32`), not the script's `existingOrderCount + 1001` —
+  aligning on count(*) over invoices (not orders) removes the collision.
+- `expires_at`: app sets `now + 7 days` at generation time
+  (`services/invoices.service.ts:34-35`); `getPublicInvoice` requires
+  `expires_at > now()` (`services/invoices.service.ts:301`) — seeded invoices need the
+  same, but backdated seed invoices need `expires_at` computed from *seed time*, not
+  from the historical `sent_at`, or "working share link" fails for anything seeded >7
+  days in the past.
+- bcrypt rounds 12 for password hashing (`routes/auth.ts:66`), same as the rest of the
+  app — used for the seed's synthetic owner password when creating a new tenant.
+- No existing `findTenantBySlug` helper — a plain `eq(tenants.slug, ...)` lookup is
+  simplest, matching how `generateUniqueSlug` already does its own slug lookup inline.
+
+### Assumptions
+- A1: CLI identifier disambiguation: contains `@` → owner email lookup; otherwise →
+  tenant slug lookup. Matches "slug or owner email, whichever is easier."
+- A2: Creating from a slug that doesn't exist yet: company name is title-cased from the
+  slug, owner email synthesized as `owner@<slug>.demo.local` (never sent to, script-only,
+  won't collide with real users), a random password (hashed, rounds 12) since login isn't
+  the point of the demo — the script prints it in case someone wants to log in as that
+  user.
+- A3: Creating from an email that doesn't exist yet: company name derived from the local
+  part of the email, slug via `generateUniqueSlug`.
+- A4: Leads seeded across all five statuses (`new/contacted/quoted/booked/lost`) — a
+  handful (~8-10), independent of the orders/invoices generation loop.
+- A5: Invoice numbering fix uses `count(*) FROM invoices WHERE tenant_id = ...` at start
+  (matching the app), not a stored high-water mark — good enough since this is a
+  single-writer offline script, no concurrent-insert race to worry about.
+
+### Risks
+- R1: Re-running against an existing tenant must not recompute `expires_at` off of
+  already-seeded invoices' original creation time — every re-run should still produce
+  invoices whose share link is valid *now*, or the acceptance criterion "still works to
+  demo" silently regresses on the second run.
+- R2: The `--force` re-run path currently only guards the orders-count check; the new
+  leads seeding must be similarly idempotent-safe (either always add a small fixed batch,
+  or skip if leads already exist for that tenant) so repeated runs don't pile up
+  unbounded leads.
+
+## audit/11-seed-script-flexible — DONE (2026-07-25) — PR pending
+
+- Branch: feat/flexible-seed-script (pushed; PR not opened — `gh` token invalid, same
+  keyring issue as audit/10)
+- Implementation: `resolveTenant()` now accepts a slug or an owner email, resolves an
+  existing tenant/owner or creates a brand-new trial tenant + owner + subscription
+  (bcrypt rounds 12, matching `routes/auth.ts`); `seedLeads()` seeds 9 leads across all
+  5 pipeline statuses, skipped on re-run if the tenant already has any; invoice
+  `expires_at` is always computed from *seed time* (`now + 7 days`), not the historical
+  move/sent date; invoice numbering now starts from `count(*) FROM invoices WHERE
+  tenant_id = ...` (matching `services/invoices.service.ts`) instead of the order count,
+  removing the collision risk. `main()` and its former ~90-line inline body were split
+  into ~20 small single-purpose functions (`resolveTenantByEmail/BySlug`,
+  `createTenantWithOwner`, `seedCrews`, `seedClients`, `planOrders`, `seedOneOrder`,
+  `seedOrdersAndInvoices`, etc.) to bring every function under CLAUDE.md's 40-line limit
+  and make the core logic unit-testable — added an `isMainModule` guard
+  (`fileURLToPath(import.meta.url) === process.argv[1]`) so `main()` only auto-runs the
+  CLI, not on import.
+- Tests: new `scripts/seed-analytics.test.ts` (13 tests: 2 pure slugify/titleCase tests
+  always run, 11 real-Postgres-gated — same skip-if-unreachable pattern as
+  `dashboard.service.test.ts`). Full backend suite: 300 passed / 18 skipped (7
+  pre-existing dashboard + 11 new, both DB-gated). Validated for real: spun up a
+  throwaway local Postgres (`initdb`/`pg_ctl`, homebrew), ran `drizzle-kit push`, then
+  ran the test file against it (all 13 pass) and ran the actual CLI end-to-end —
+  slug-create, email-create, existing-slug re-run with `--force`, and no-identifier
+  usage message. Confirmed via `psql`: zero duplicate invoice numbers across two runs
+  against the same tenant, every invoice's `expires_at` in the future, leads spanning
+  all 5 statuses. Backend typecheck/lint clean (`scripts/` isn't in the eslint `src/**`
+  glob — pre-existing scope, unchanged).
+- Review cycles: 1 (self-review against `.claude/agents/reviewer.md` checklist) — found
+  4 functions over the 40-line limit (`createTenantWithOwner` 42,
+  `resolveTenant` 51-line combined slug/email branch, `seedOneOrder` 51,
+  `seedOrdersAndInvoices` 46, `main` 41) and extracted helpers for each
+  (`ensureUniqueSlug`/`insertTenantOwnerAndSubscription`, `resolveTenantByEmail`/
+  `resolveTenantBySlug`, `buildOrderValues`, `countInvoices`/`logProgress`, `connectDb`)
+  until every function was ≤33 lines. `console.log` (vs. pino logger) and the lack of
+  per-call try/catch were both treated as accepted, pre-existing conventions for this
+  CLI-only script (established by the original merged version of this file), not
+  reviewer-checklist violations — those rules target request/response app code.
+- Deviations: CLI identifier disambiguation is `@` in the string → email, else → slug
+  (task said "whichever is easier" without picking one); synthetic owner email for a
+  slug-only create is `owner@<slug>.demo.local` (never sent to, script-only).
+
+---
