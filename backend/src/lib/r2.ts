@@ -18,13 +18,36 @@ const FILE_EXT_MAP: Record<string, string> = {
   'application/pdf': 'pdf',
 }
 
+const R2_ENV_VARS = [
+  'R2_ACCOUNT_ID',
+  'R2_ACCESS_KEY_ID',
+  'R2_SECRET_ACCESS_KEY',
+  'R2_BUCKET_NAME',
+  'R2_PUBLIC_URL',
+] as const
+
+export function missingR2Vars(): string[] {
+  return R2_ENV_VARS.filter((name) => !env[name])
+}
+
 export function isR2Configured(): boolean {
-  return Boolean(
-    env.R2_ACCOUNT_ID &&
-      env.R2_ACCESS_KEY_ID &&
-      env.R2_SECRET_ACCESS_KEY &&
-      env.R2_BUCKET_NAME &&
-      env.R2_PUBLIC_URL,
+  return missingR2Vars().length === 0
+}
+
+// Without R2 we fall back to the container filesystem, which Railway wipes on
+// every deploy — silently destroying signed contracts and signature images.
+// That fallback is fine for local dev, never in production.
+export function assertStorageConfigured(): void {
+  if (env.NODE_ENV !== 'production') return
+
+  const missing = missingR2Vars()
+  if (missing.length === 0) return
+
+  throw new Error(
+    `R2 storage is not configured. Missing env vars: ${missing.join(', ')}. ` +
+      'Refusing to start in production: uploads (signed contracts, signature images, ' +
+      'order files, logos) would be written to the container filesystem and lost on ' +
+      'the next deploy.',
   )
 }
 
