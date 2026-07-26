@@ -42,7 +42,7 @@ export default function LoginPage(): JSX.Element {
       </form>
       <p className="mt-4 text-center text-sm text-muted-foreground">
         No account yet?{' '}
-        <Link to="/register" className="font-medium text-foreground hover:underline">Start free trial</Link>
+        <Link to="/register" className="font-medium text-foreground hover:underline">Sign up</Link>
       </p>
     </AuthCard>
   )
