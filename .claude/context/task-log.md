@@ -960,3 +960,39 @@ one-field change vs. new UI/flow.
   logic itself; subscription/plan logic.
 
 ---
+
+## audit/17-fix-zero-dollar-lead-conversion — DONE (2026-07-26)
+
+- `services/leads.service.ts` — new `priceFromLead()` calls the same
+  `getTenantPricing()` source of truth `POST /orders` already uses. Prices
+  from the lead's *own* `home_size` only — if it's missing, price stays `0`
+  deliberately (not the schema default landing by accident): `home_size`
+  still falls back to `'2br'` for the orders table's `NOT NULL` constraint,
+  but that fallback is never fed into the pricing lookup, so a guessed size
+  can never produce a plausible-but-wrong price. Leads have no `packing`
+  column at all, so the packing fee never applies at conversion — confirmed
+  by reading the schema, not assumed.
+- `services/invoices.service.ts` — `generateInvoice()` now returns a
+  discriminated `{ok:true, invoice} | {ok:false, reason:'not_found'|
+  'zero_price'}` (matching the existing `PaymentLinkResult` convention in the
+  same file) instead of `Invoice | null`, and refuses to invoice an order
+  with `total_price === 0`. `routes/invoices.ts`'s `POST /invoices` maps
+  `zero_price` to 422 with a clear message; no frontend changes were needed
+  at all — `InvoicesPage.tsx`'s existing generic `ApiError` handling already
+  surfaces any backend `{error}` message verbatim.
+- Verified live end-to-end (not just unit tests): registered a tenant,
+  created one lead with a home size and one without, converted both —
+  `psql` confirmed the priced order at $480 and the unpriced one explicitly
+  at $0 (not silently something else) — then hit `POST /invoices` for each:
+  the priced order returned 201 or a real invoice, the $0 order returned 422
+  with "This order has no price set yet."
+- Tests: extended `leads.service.test.ts` (+2: correct-price-from-baseRates,
+  no-packing-fee; existing sparse-lead test now also asserts `base_price: 0,
+  total_price: 0` explicitly) and `routes/invoices.test.ts` (+4: 201 happy
+  path, 404 not-found, 422 zero-price, 401 no-auth — this route previously had
+  zero test coverage of `POST /invoices` at all). Updated
+  `invoices.concurrency.test.ts` (from task 12) for the new result shape,
+  re-verified against real Postgres. Backend 332 passed (was 326).
+- Out of scope, untouched per the task: leads pipeline UI/statuses.
+
+---

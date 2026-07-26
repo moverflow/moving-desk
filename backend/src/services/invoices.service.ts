@@ -56,14 +56,22 @@ async function nextInvoiceNumber(tenantId: string): Promise<number> {
   return row.lastNumber
 }
 
-export async function generateInvoice(tenantId: string, orderId: string) {
+export type GenerateInvoiceResult =
+  | { ok: true; invoice: typeof invoices.$inferSelect }
+  | { ok: false; reason: 'not_found' | 'zero_price' }
+
+// zero_price catches an order that was never actually priced (e.g. a lead
+// converted with no home size captured) — invoicing it would bill the
+// customer $0 with no indication anything went wrong.
+export async function generateInvoice(tenantId: string, orderId: string): Promise<GenerateInvoiceResult> {
   const [order] = await db
-    .select({ id: orders.id })
+    .select({ id: orders.id, totalPrice: orders.total_price })
     .from(orders)
     .where(and(eq(orders.id, orderId), eq(orders.tenant_id, tenantId)))
     .limit(1)
 
-  if (!order) return null
+  if (!order) return { ok: false, reason: 'not_found' }
+  if (order.totalPrice === 0) return { ok: false, reason: 'zero_price' }
 
   const expiresAt = new Date()
   expiresAt.setDate(expiresAt.getDate() + 7)
@@ -74,7 +82,7 @@ export async function generateInvoice(tenantId: string, orderId: string) {
     .values({ tenant_id: tenantId, order_id: orderId, number, status: 'draft', expires_at: expiresAt })
     .returning()
 
-  return invoice
+  return { ok: true, invoice }
 }
 
 export async function listInvoices(tenantId: string) {
