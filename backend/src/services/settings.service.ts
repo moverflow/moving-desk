@@ -75,6 +75,7 @@ export async function updateSettings(
     bookingEnabled?: boolean
     bookingDescription?: string | null
     contractTerms?: string | null
+    hasSeenTour?: boolean
   }
 ) {
   const [current] = await db
@@ -90,7 +91,8 @@ export async function updateSettings(
     updates.baseRates !== undefined ||
     updates.packingFee !== undefined ||
     updates.phone !== undefined ||
-    updates.contractTerms !== undefined
+    updates.contractTerms !== undefined ||
+    updates.hasSeenTour !== undefined
   if (updates.timezone !== undefined) merged.timezone = updates.timezone
   if (updates.baseRates !== undefined) merged.baseRates = { ...merged.baseRates, ...updates.baseRates }
   if (updates.packingFee !== undefined) merged.packingFee = updates.packingFee
@@ -98,6 +100,7 @@ export async function updateSettings(
   if (updates.contractTerms !== undefined) {
     merged.contractTerms = updates.contractTerms?.trim() || undefined
   }
+  if (updates.hasSeenTour !== undefined) merged.hasSeenTour = updates.hasSeenTour
 
   const set: {
     name?: string

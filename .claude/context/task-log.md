@@ -1082,3 +1082,83 @@ one-field change vs. new UI/flow.
   signing flow; the Resend sandbox email limitation itself.
 
 ---
+
+## audit/20-first-login-tour — DONE (2026-07-26)
+
+- Library choice: `react-joyride@3.2.0` (checked via `npm view` before
+  picking, not assumed — actively maintained, last published 2026-07-09,
+  React 16.8-19 peer range, ships its own TypeScript types). Preferred over
+  `driver.js` because it's a React-native component with a per-step `before`
+  hook that returns a Promise the tour awaits — the natural mechanism for
+  "navigate to a different route, then show this step," vs. driver.js's
+  framework-agnostic imperative API which would need hand-rolled React/router
+  glue for the same behavior.
+- `hasSeenTour` flag: added to the existing `TenantSettings` JSONB type
+  (`backend/src/db/schema.ts`) rather than a new `tenants` column — no
+  migration needed, follows the exact precedent of `contractTerms`/`phone`
+  already living in that same JSONB blob. Wired through
+  `settings.service.ts`'s `updateSettings` and both `GET`/`PATCH /settings`
+  responses, reusing the existing owner-only settings endpoint rather than
+  touching `/auth/register`, `/auth/login`, the JWT payload, or the auth
+  store — deliberately the smaller, lower-blast-radius integration point.
+- `components/shared/ProductTour.tsx` (new) — mounted once in `AppShell` for
+  owners only (survives route changes, unlike page components behind
+  `<Outlet/>`), so one Joyride instance drives navigation across Dashboard →
+  Settings (Company/Crews/Team/Booking tabs) → Orders. Each step's `before`
+  hook calls `navigate()` then polls (`lib/tourSteps.ts`'s `waitForElement`)
+  until that page's target DOM node exists, so the tooltip never anchors to
+  a not-yet-rendered element. Auto-starts once per tenant via `hasSeenTour`;
+  persists `hasSeenTour: true` on both `finished` and `skipped` — dismissing
+  is a first-class path, not a lesser one.
+- `routes/SettingsPage.tsx` — tabs are now controlled via a `?tab=` search
+  param (previously `defaultValue` only, no external control), matching the
+  existing `?invoice=`/`?order=` deep-link convention already used by
+  `InvoicesPage`/`OrdersPage` — required so the tour (and the manual replay
+  link) can land on a specific tab, not just the default Company one.
+- Manual replay: a "Take the tour" link in `SettingsPage.tsx` navigates to
+  `/dashboard?tour=replay`; `ProductTour` detects that param, starts
+  regardless of `hasSeenTour`, and strips the param immediately so a refresh
+  doesn't re-trigger it.
+- `data-tour="..."` anchors added to: `DashboardPage.tsx` (welcome heading),
+  `BaseRatesFields.tsx` (rates+packing), `CrewsTab.tsx` (+ Add crew),
+  `TeamTab.tsx` (invite form), `BookingTab.tsx` (link controls),
+  `OrdersPage.tsx` (Kanban board) — one-line, cosmetic additions to
+  pre-existing functions, left their pre-existing 40-line-limit status
+  otherwise untouched (several were already over the limit before this task,
+  e.g. `CrewsTab`/`OrdersPage`/`BookingTab`/`TeamTab` — same judgment call as
+  prior tasks: not refactoring unrelated code for a one-line change).
+- Tests: new `lib/tourSteps.test.ts` (5 — step order/content, `waitForElement`
+  sync/async/timeout) and `components/shared/ProductTour.test.tsx` (7 —
+  auto-starts once, does not repeat, persists the flag on both finish and
+  skip, never re-fires on re-render, `?tour=replay` bypasses the flag and
+  strips itself, each step's `before` hook navigates to the right route),
+  mocking `react-joyride`'s `Joyride` component to capture props rather than
+  rendering real Floating UI/portal internals. Updated `BookingTab.test.tsx`'s
+  `Settings` fixture for the new required `hasSeenTour` field. Frontend 237
+  passed (was 225, +12 net across 2 new files). Backend unaffected by this
+  task's own logic (340 passed, same as before) — only touched to add the
+  flag's plumbing, no new backend test needed since `updateSettings`/`GET
+  /settings` have no existing dedicated test file to extend and the change
+  is a one-field passthrough identical to the `contractTerms` pattern already
+  in that same function.
+- Review: `SettingsPage.tsx`'s default export grew to 48 lines from the new
+  controlled-tabs + replay-link logic (a substantive addition, unlike the
+  one-line `data-tour` tweaks elsewhere) — extracted `SettingsHeader` and
+  `SettingsTabs`, bringing it to 13/22/26 lines across three functions.
+  `ProductTour.tsx`'s main function sits at 50 lines — same documented
+  judgment call as `BookingTab.tsx`/`TeamTab.tsx` (startup/event-handling
+  logic tightly coupled to local state, not mechanically separable JSX).
+- Verified live end-to-end via Playwright (not just unit tests): registered
+  a fresh tenant (confirmed `hasSeenTour: false` via `GET /settings`), logged
+  in, and drove all 6 steps for real — the tour auto-navigated from /orders
+  (where a fresh login lands) to /dashboard on its own, then through all
+  four Settings tabs and back to /orders, with the spotlight correctly
+  highlighting each real target element (screenshots in scratchpad). Then
+  confirmed a page reload does NOT re-show it, and separately confirmed
+  "Take the tour" → `/dashboard?tour=replay` re-launches it even after
+  completion, strips the query param, and Skip dismisses cleanly.
+- Out of scope, untouched per the task: the static written
+  documentation/one-pager (separate task); tour steps beyond the six listed
+  setup-critical ones.
+
+---

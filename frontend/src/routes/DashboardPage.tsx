@@ -226,7 +226,7 @@ export default function DashboardPage(): JSX.Element {
 
   return (
     <div className="p-4 flex flex-col gap-4">
-      <h1 className="text-xl font-semibold">Dashboard</h1>
+      <h1 data-tour="dashboard-welcome" className="text-xl font-semibold">Dashboard</h1>
 
       <Tabs defaultValue="metrics">
         <TabsList>

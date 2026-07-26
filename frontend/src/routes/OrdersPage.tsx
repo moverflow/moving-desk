@@ -45,7 +45,7 @@ function KanbanBoard({ focusOrderId, onFocusHandled }: KanbanBoardProps): JSX.El
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div data-tour="orders-kanban" className="overflow-x-auto">
       <div className="flex gap-4 min-w-[800px]">
         {COLUMNS.map(({ title, status }) => (
           <KanbanColumn

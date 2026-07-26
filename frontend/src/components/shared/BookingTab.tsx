@@ -20,7 +20,7 @@ interface BookingLinkControlsProps {
 // persisted state (bookingIsLive), not the switch's own local toggle.
 function BookingLinkControls({ bookingUrl, bookingIsLive, copied, onCopy }: BookingLinkControlsProps): JSX.Element {
   return (
-    <div className="space-y-1.5">
+    <div data-tour="booking-link" className="space-y-1.5">
       <Label>Your booking link</Label>
       <div className="flex items-center gap-2 flex-wrap">
         <code className="text-xs bg-gray-100 rounded px-2 py-1.5 text-gray-700 break-all flex-1 min-w-[200px]">

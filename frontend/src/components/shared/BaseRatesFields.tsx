@@ -26,7 +26,7 @@ export default function BaseRatesFields({
   disabled,
 }: BaseRatesFieldsProps): JSX.Element {
   return (
-    <div className="space-y-2">
+    <div data-tour="base-rates" className="space-y-2">
       <Label>Base rates</Label>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {RATE_ROWS.map(({ key, label }) => (
