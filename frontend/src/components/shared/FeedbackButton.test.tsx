@@ -90,4 +90,41 @@ describe('FeedbackButton', () => {
     await user.type(screen.getByPlaceholderText(/what happened/i), 'x')
     expect(screen.getByRole('button', { name: /^submit$/i })).toBeEnabled()
   })
+
+  // Regression coverage for the bug this fix addresses: the modal previously
+  // used a Sheet anchored to the bottom edge instead of a centered dialog.
+  it('centers the modal in the viewport instead of anchoring it to an edge', async () => {
+    const user = userEvent.setup()
+    render(<FeedbackButton />)
+
+    await user.click(screen.getByRole('button', { name: /report issue/i }))
+
+    const backdrop = screen.getByRole('dialog').parentElement
+    expect(backdrop).toHaveClass('items-center', 'justify-center')
+  })
+
+  it('closes when the close button is clicked', async () => {
+    const user = userEvent.setup()
+    render(<FeedbackButton />)
+
+    await user.click(screen.getByRole('button', { name: /report issue/i }))
+    await user.click(screen.getByRole('button', { name: /close/i }))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('closes on a backdrop click but not on a click inside the dialog', async () => {
+    const user = userEvent.setup()
+    render(<FeedbackButton />)
+    await user.click(screen.getByRole('button', { name: /report issue/i }))
+
+    const dialog = screen.getByRole('dialog')
+    const backdrop = dialog.parentElement as HTMLElement
+
+    await user.click(dialog)
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+    await user.click(backdrop)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
 })

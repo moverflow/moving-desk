@@ -1,9 +1,8 @@
 import type { FormEvent, JSX } from 'react'
 import { useState } from 'react'
-import { MessageSquareText } from 'lucide-react'
+import { MessageSquareText, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { useSubmitFeedback } from '@/hooks/useFeedback'
 import type { FeedbackSeverity } from '@/types'
 
@@ -55,12 +54,53 @@ function FeedbackForm({
         </select>
       </label>
       {isError && <p className="text-sm text-destructive">Couldn't send that — please try again.</p>}
-      <SheetFooter>
+      <div className="flex justify-end">
         <Button type="submit" disabled={isPending || message.trim().length === 0}>
           {isPending ? 'Sending...' : 'Submit'}
         </Button>
-      </SheetFooter>
+      </div>
     </form>
+  )
+}
+
+interface FeedbackModalProps {
+  onClose: () => void
+  submitted: boolean
+  message: string
+  onMessageChange: (message: string) => void
+  severity: FeedbackSeverity
+  onSeverityChange: (severity: FeedbackSeverity) => void
+  isPending: boolean
+  isError: boolean
+  onSubmit: (e: FormEvent<HTMLFormElement>) => void
+}
+
+function FeedbackModal({ onClose, submitted, ...form }: FeedbackModalProps): JSX.Element {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="feedback-modal-title"
+        className="w-full max-w-[420px] rounded-xl bg-white p-6 shadow-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between">
+          <h2 id="feedback-modal-title" className="text-base font-semibold text-gray-900">
+            Report an issue
+          </h2>
+          <button type="button" onClick={onClose} aria-label="Close" className="text-gray-400 hover:text-gray-600">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {submitted ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">Thanks, we got it!</p>
+        ) : (
+          <FeedbackForm {...form} />
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -74,7 +114,7 @@ export default function FeedbackButton(): JSX.Element {
   function handleOpenChange(next: boolean): void {
     setOpen(next)
     // Reopening starts a fresh report; a failed attempt's text is not cleared
-    // by this, since that only runs when the sheet transitions to open.
+    // by this, since that only runs when the modal transitions to open.
     if (next) {
       setSubmitted(false)
       reset()
@@ -102,30 +142,19 @@ export default function FeedbackButton(): JSX.Element {
         <span className="hidden sm:inline">Report issue</span>
       </Button>
 
-      <Sheet open={open} onOpenChange={handleOpenChange}>
-        <SheetContent side="bottom" className="mx-auto max-h-[90vh] max-w-[480px] rounded-t-xl">
-          <SheetHeader>
-            <SheetTitle>Report an issue</SheetTitle>
-            <SheetDescription className="sr-only">
-              Send a quick bug report or suggestion to the MovingDesk team
-            </SheetDescription>
-          </SheetHeader>
-
-          {submitted ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">Thanks, we got it!</p>
-          ) : (
-            <FeedbackForm
-              message={message}
-              onMessageChange={setMessage}
-              severity={severity}
-              onSeverityChange={setSeverity}
-              isPending={isPending}
-              isError={isError}
-              onSubmit={handleSubmit}
-            />
-          )}
-        </SheetContent>
-      </Sheet>
+      {open && (
+        <FeedbackModal
+          onClose={() => handleOpenChange(false)}
+          submitted={submitted}
+          message={message}
+          onMessageChange={setMessage}
+          severity={severity}
+          onSeverityChange={setSeverity}
+          isPending={isPending}
+          isError={isError}
+          onSubmit={handleSubmit}
+        />
+      )}
     </>
   )
 }
