@@ -58,19 +58,24 @@ async function nextInvoiceNumber(tenantId: string): Promise<number> {
 
 export type GenerateInvoiceResult =
   | { ok: true; invoice: typeof invoices.$inferSelect }
-  | { ok: false; reason: 'not_found' | 'zero_price' }
+  | { ok: false; reason: 'not_found' | 'zero_price' | 'invalid_status' }
 
-// zero_price catches an order that was never actually priced (e.g. a lead
-// converted with no home size captured) — invoicing it would bill the
-// customer $0 with no indication anything went wrong.
 export async function generateInvoice(tenantId: string, orderId: string): Promise<GenerateInvoiceResult> {
   const [order] = await db
-    .select({ id: orders.id, totalPrice: orders.total_price })
+    .select({ id: orders.id, status: orders.status, totalPrice: orders.total_price })
     .from(orders)
     .where(and(eq(orders.id, orderId), eq(orders.tenant_id, tenantId)))
     .limit(1)
 
   if (!order) return { ok: false, reason: 'not_found' }
+  // Mirrors the contract flow's server-side gate (routes/orders.ts send-contract) —
+  // the frontend's eligibleOrders filter is cosmetic and must not be the only guard.
+  if (order.status !== 'completed' && order.status !== 'closed') {
+    return { ok: false, reason: 'invalid_status' }
+  }
+  // Catches an order that was never actually priced (e.g. a lead converted with
+  // no home size captured) — invoicing it would bill the customer $0 with no
+  // indication anything went wrong.
   if (order.totalPrice === 0) return { ok: false, reason: 'zero_price' }
 
   const expiresAt = new Date()
