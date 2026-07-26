@@ -22,6 +22,7 @@ interface RawOrder {
   base_price: number
   total_price: number
   contract_status: string | null
+  contract_token: string | null
   contract_signed_at: string | null
   contract_signed_name: string | null
   created_at: string | null
@@ -58,6 +59,7 @@ function mapOrder(raw: RawOrder): Order {
     createdAt: raw.created_at ?? '',
     isOnline: raw.created_by === null,
     contractStatus: (raw.contract_status ?? 'none') as ContractStatus,
+    contractToken: raw.contract_token ?? undefined,
     contractSignedName: raw.contract_signed_name ?? undefined,
     contractSignedAt: raw.contract_signed_at ?? undefined,
   }

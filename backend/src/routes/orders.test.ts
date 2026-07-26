@@ -217,6 +217,37 @@ describe('POST /orders — pricing', () => {
   })
 })
 
+describe('GET /orders/:id', () => {
+  // The whole point of this task: the frontend can only build a copy-link
+  // fallback for the contract if the token actually reaches the API response.
+  it('includes contract_token so the frontend can build the copy-link URL', async () => {
+    getOrderByIdMock.mockResolvedValue({
+      ...order,
+      contract_status: 'sent',
+      contract_token: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+    })
+
+    const res = await app.request(`/orders/${ORDER_ID}`, { headers: { Cookie: await authCookie() } })
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.order.contract_token).toBe('aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee')
+  })
+
+  it('returns 404 when the order is not found', async () => {
+    getOrderByIdMock.mockResolvedValue(null)
+
+    const res = await app.request(`/orders/${ORDER_ID}`, { headers: { Cookie: await authCookie() } })
+
+    expect(res.status).toBe(404)
+  })
+
+  it('rejects a request with no auth cookie with 401', async () => {
+    const res = await app.request(`/orders/${ORDER_ID}`)
+    expect(res.status).toBe(401)
+  })
+})
+
 describe('POST /orders/:id/send-contract', () => {
   it('AC16 — sends the contract for a confirmed order', async () => {
     getOrderByIdMock.mockResolvedValue({ ...order, status: 'confirmed' })

@@ -1037,3 +1037,48 @@ one-field change vs. new UI/flow.
   itself; invite expiry/single-use enforcement.
 
 ---
+
+## audit/19-contract-copy-link — DONE (2026-07-26)
+
+- `services/orders.service.ts` — added `contract_token: orders.contract_token`
+  to the shared `orderSelectFields` used by both `listOrders` and
+  `getOrderById`, so `GET /orders` and `GET /orders/:id` now return it (the
+  order detail panel reads from the same `useOrders()` list query, so no
+  separate per-order fetch was needed). `POST /orders` and `PATCH /orders/:id`
+  already returned it via `.returning()` — untouched.
+  `frontend/hooks/useOrders.ts` maps `contract_token` → `contractToken` on
+  `Order` (`types/index.ts`).
+- `components/shared/ContractSection.tsx` — new `ContractLinkControls`
+  ("Copy link" + the URL in a `<code>` block, same visual pattern as
+  `BookingTab`/`TeamTab`) shown whenever `contractStatus === 'sent'` and a
+  token exists — not gated on just-clicked-Resend, so it's there any time
+  the order detail panel is opened, matching the acceptance criteria. Built
+  with `${window.location.origin}/contract/${token}` (frontend-side), not
+  `env.FRONTEND_URL` (how the backend's own contract email link is built) —
+  deliberately matching the two existing frontend precedents instead.
+  Resend itself is untouched — its Resend-sandbox delivery limitation is the
+  separate, already-documented issue this task explicitly does not fix.
+- Tests: new `routes/orders.test.ts` `GET /orders/:id` describe block (+3 —
+  this route had zero coverage before: token-in-response, 404, 401) and new
+  `components/shared/ContractSection.test.tsx` (6 — first coverage this
+  component has ever had: link+button shown while sent, Copy actually writes
+  to the clipboard via `@testing-library/user-event`'s real Clipboard stub,
+  no copy-link block when the token is missing, signed state hides it,
+  send-contract button visibility by order status). Backend 340 passed (was
+  337), frontend 225 passed (was 219).
+- Review: extracted `SignedContract`, `SentContract`, `NotSentContract` from
+  `ContractSection.tsx`'s default export (was 51 lines pre-existing, over
+  the limit before this task touched it) — all four functions now sit at
+  13-23 lines each, well under the limit. Unlike `TeamTab`/`BookingTab`,
+  this JSX was cleanly separable by status branch, so no exception was
+  needed here.
+- Verified live end-to-end: registered a tenant, created and confirmed a
+  real order (triggering the same `sendContractForOrder` path as the
+  automatic send-on-confirm), opened the order detail panel at a 375px
+  viewport, copied the link, and loaded that exact URL in a second browser
+  tab — confirmed it renders the real, already-working public contract page
+  with the correct move details.
+- Out of scope, untouched per the task: `ContractPage.tsx` and the public
+  signing flow; the Resend sandbox email limitation itself.
+
+---
