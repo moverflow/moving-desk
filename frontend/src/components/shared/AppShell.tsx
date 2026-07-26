@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth.store'
 import MobileNavDrawer, { type MobileNavItem } from '@/components/shared/MobileNavDrawer'
 import NotificationBell from '@/components/shared/NotificationBell'
+import ProductTour from '@/components/shared/ProductTour'
 import TrialBanner from '@/components/shared/TrialBanner'
 import UserMenu from '@/components/shared/UserMenu'
 
@@ -80,6 +81,7 @@ export default function AppShell(): JSX.Element {
       <main className="flex-1">
         <Outlet />
       </main>
+      {isOwner && <ProductTour />}
     </div>
   )
 }

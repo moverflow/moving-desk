@@ -163,7 +163,7 @@ function InviteMemberForm({ crews }: InviteMemberFormProps): JSX.Element {
 
   return (
     <>
-      <form onSubmit={handleInvite} className="space-y-3">
+      <form data-tour="invite-team" onSubmit={handleInvite} className="space-y-3">
         <p className="text-sm font-medium">Invite team member</p>
         <Input
           type="email"

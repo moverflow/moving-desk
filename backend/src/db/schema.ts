@@ -25,6 +25,7 @@ export type TenantSettings = {
   invoiceFooter?: string     // текст в подвале инвойса (опционально)
   phone?: string             // публичный телефон компании (для booking page / инвойсов)
   contractTerms?: string     // кастомные условия договора, max 2000 символов (для e-signature)
+  hasSeenTour?: boolean      // прошёл ли owner интерактивный тур по продукту
 }
 
 // ─── TENANTS ──────────────────────────────────────────────────────────────────

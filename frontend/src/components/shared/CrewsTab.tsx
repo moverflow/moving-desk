@@ -39,7 +39,7 @@ export default function CrewsTab(): JSX.Element {
 
   return (
     <div className="mt-4 space-y-5">
-      <Button type="button" variant="outline" size="sm" onClick={() => setIsAdding((v) => !v)}>
+      <Button data-tour="add-crew" type="button" variant="outline" size="sm" onClick={() => setIsAdding((v) => !v)}>
         {isAdding ? 'Cancel' : '+ Add crew'}
       </Button>
       {isAdding && (

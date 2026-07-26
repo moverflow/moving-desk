@@ -149,6 +149,7 @@ export interface Settings {
   bookingEnabled: boolean
   bookingDescription: string | null
   contractTerms: string | null
+  hasSeenTour: boolean
 }
 
 export interface PublicContract {

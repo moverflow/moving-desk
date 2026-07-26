@@ -24,6 +24,7 @@ function baseSettings(overrides: Partial<Settings> = {}): Settings {
     bookingEnabled: false,
     bookingDescription: null,
     contractTerms: null,
+    hasSeenTour: false,
     ...overrides,
   }
 }
