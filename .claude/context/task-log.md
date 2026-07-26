@@ -1217,3 +1217,48 @@ one-field change vs. new UI/flow.
   logic (confirmed correct as-is, not modified).
 
 ---
+
+## audit/23-pilot-guide-page — DONE (2026-07-26)
+
+- New public route `/guide` (`frontend/src/routes/GuidePage.tsx`), registered
+  in `App.tsx` outside `ProtectedRoute` — no auth required, matching the
+  existing pattern used by `/how-it-works` and `/test-guide`.
+- Content lives in its own data module, `frontend/src/lib/guide-content.ts`
+  — a typed `GUIDE_CONTENT: Record<'en' | 'ru', GuideSection[]>` of
+  structured blocks (`p` / `subheading` / `list` / `placeholder`), one
+  parallel array per language, all 10 sections from the task with real
+  copy (not lorem ipsum) cross-checked against the actual current UI
+  strings rather than the task notes verbatim — e.g. Settings tabs are
+  Company/Team/Billing/Crews/Booking/Integrations, the invite button reads
+  "Send invite" (not "Send Invite"), the invite role is "Crew member", and
+  crew login is at `/crew/login` (not `/crew`, which requires a session).
+  This is a lightweight strings-object i18n approach per the task's
+  technical note — no i18n library added, since none existed in the repo.
+- New `frontend/src/components/guide/` (following the existing
+  resource-folder convention like `components/booking`, `components/crew`):
+  `GuideSectionView.tsx` (renders one section's blocks, using shadcn
+  `Card`/`CardContent` for visual consistency with the rest of the app),
+  `GuidePlaceholder.tsx` (bordered dashed-box + label, no `<img>` tag at
+  all so there is no broken-image icon risk), `GuideToc.tsx` (sticky nav,
+  horizontal scroll on mobile / vertical sidebar on desktop), and
+  `GuideLanguageToggle.tsx` (shadcn `Button`, EN default, switches
+  `useState` in `GuidePage.tsx` — instant, no reload, no routing).
+- Tests: new `routes/GuidePage.test.tsx` (4) — renders all 10 sections in
+  English by default, language toggle swaps all visible text to Russian
+  and back with no unmounted content lingering, every section's anchor id
+  matches its TOC link's `href`, and placeholders render as labeled text
+  with zero `<img>` elements on the page. Frontend suite: 247 passed (was
+  243 before this branch).
+- Validated: `typecheck` and `lint` both clean (lint's 4 warnings are
+  pre-existing `react-refresh` warnings on unrelated files, not from this
+  change), production `build` succeeds.
+- Not verified: no headless-browser tool (Playwright/chromium-cli) was
+  available in this environment, so mobile responsiveness and the sticky
+  TOC's actual on-screen behavior were checked by reviewing the responsive
+  Tailwind classes and structure only, not by rendering in an actual
+  viewport — flagged to the user rather than claimed as tested.
+- Out of scope, untouched per the task: real screenshots (placeholders are
+  intentionally left as swap-in points); Sprint 4 items (Stripe/R2) not
+  touched.
+
+---
