@@ -18,7 +18,7 @@ function GuideBlockView({ block }: { block: GuideBlock }): JSX.Element {
         </ul>
       )
     case 'placeholder':
-      return <GuidePlaceholder label={block.label} src={block.src} />
+      return <GuidePlaceholder label={block.label} images={block.images} />
   }
 }
 

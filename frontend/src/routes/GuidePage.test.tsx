@@ -63,4 +63,32 @@ describe('GuidePage', () => {
     expect(screen.queryByRole('img', { name: 'Screenshot: Settings → Company tab' })).not.toBeInTheDocument()
     expect(screen.getByText('Screenshot: Settings → Company tab')).toBeInTheDocument()
   })
+
+  it('AC — a multi-screenshot section shows every image in step order', () => {
+    renderGuide()
+    const label = 'Screenshot: Invoice detail, Send to client / Copy link'
+    const expectedSrcs = [
+      '/guide/invoice-page.png',
+      '/guide/invoice-sent-copy-link.png',
+      '/guide/invoice-page-payment.png',
+      '/guide/invoice-page-payment-successfull.png',
+    ]
+
+    expectedSrcs.forEach((src, i) => {
+      const img = screen.getByRole('img', { name: `${label} — step ${i + 1} of ${expectedSrcs.length}` })
+      expect(img).toHaveAttribute('src', src)
+    })
+  })
+
+  it('AC — one broken image in a multi-image group falls back without affecting the others', () => {
+    renderGuide()
+    const label = 'Screenshot: Invoice detail, Send to client / Copy link'
+    const firstImg = screen.getByRole('img', { name: `${label} — step 1 of 4` })
+
+    fireEvent.error(firstImg)
+
+    expect(screen.queryByRole('img', { name: `${label} — step 1 of 4` })).not.toBeInTheDocument()
+    expect(screen.getByText(`${label} (1/4)`)).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: `${label} — step 2 of 4` })).toBeInTheDocument()
+  })
 })
