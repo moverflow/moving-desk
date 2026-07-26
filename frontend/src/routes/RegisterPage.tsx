@@ -94,7 +94,7 @@ export default function RegisterPage(): JSX.Element {
         />
         {error !== null && <p className="text-sm text-destructive">{error}</p>}
         <Button type="submit" className="w-full" disabled={isPending}>
-          {isPending ? 'Creating account...' : 'Start free trial — 14 days free'}
+          {isPending ? 'Creating account...' : 'Sign up'}
         </Button>
       </form>
       <p className="mt-4 text-center text-sm text-muted-foreground">

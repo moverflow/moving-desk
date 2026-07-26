@@ -55,7 +55,7 @@ describe('RegisterPage', () => {
     fireEvent.change(screen.getByLabelText(/your name/i), { target: { value: 'John' } })
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'john@best.com' } })
     fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'secret123' } })
-    fireEvent.click(screen.getByRole('button', { name: /start free trial/i }))
+    fireEvent.click(screen.getByRole('button', { name: /sign up/i }))
 
     await waitFor(() => {
       expect(screen.getByText('setup page')).toBeInTheDocument()
@@ -75,7 +75,7 @@ describe('RegisterPage', () => {
     fireEvent.change(screen.getByLabelText(/your name/i), { target: { value: 'John' } })
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'john@best.com' } })
     fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'secret123' } })
-    fireEvent.click(screen.getByRole('button', { name: /start free trial/i }))
+    fireEvent.click(screen.getByRole('button', { name: /sign up/i }))
 
     await waitFor(() => {
       expect(useAuthStore.getState().isAuthenticated).toBe(true)
@@ -104,7 +104,7 @@ describe('RegisterPage', () => {
     fireEvent.change(screen.getByLabelText(/your name/i), { target: { value: 'John' } })
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'john@best.com' } })
     fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'short' } })
-    fireEvent.click(screen.getByRole('button', { name: /start free trial/i }))
+    fireEvent.click(screen.getByRole('button', { name: /sign up/i }))
 
     await waitFor(() => {
       expect(screen.getByText('Password must be at least 8 characters')).toBeInTheDocument()

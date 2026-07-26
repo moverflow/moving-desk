@@ -1262,3 +1262,31 @@ one-field change vs. new UI/flow.
   touched.
 
 ---
+
+## audit/24-signup-copy — DONE (2026-07-26)
+
+- Copy-only change, no logic touched. Found exactly two "trial" CTAs in the
+  actual registration/login flow via grep (the task's own guess at likely
+  locations was right): `RegisterPage.tsx`'s submit button ("Start free
+  trial — 14 days free" → "Sign up") and `LoginPage.tsx`'s "No account
+  yet?" link ("Start free trial" → "Sign up"). Dropped the "— 14 days
+  free" tag from the button rather than keeping it next to "Sign up" —
+  the task itself flagged this exact combination as something that "might
+  read oddly," and pairing a neutral action verb with a countdown undercuts
+  the point of the change. The real trial-period disclosure this dropped
+  overlaps with is not lost: `TrialBanner.tsx` and `BillingTab.tsx` still
+  show "X days left in your trial" / "Trial ends ..." post-signup, in
+  Settings — exactly the "elsewhere" the task said not to touch.
+  `AuthCard.tsx`'s subtitles ("Create your account" / "Sign in to your
+  account") already had no trial language, nothing to change there.
+- Updated the two existing test files that asserted on the old copy as an
+  accessible-name matcher (`RegisterPage.test.tsx` ×3, `LoginPage.test.tsx`
+  ×1) — these would have silently broken (wrong button not found) had the
+  copy changed without updating the matchers. Full frontend suite still
+  247 passed, typecheck and lint clean.
+- Out of scope, untouched per the task: `SubscriptionPlan`/`plan: 'trial'`
+  type, `trialEndsAt`, `TrialBanner`, `BillingTab`, and
+  `.claude/context/decisions.md`'s pricing/trial policy — all logic and
+  documentation, not registration/login copy.
+
+---

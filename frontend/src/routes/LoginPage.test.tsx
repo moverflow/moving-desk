@@ -84,6 +84,6 @@ describe('LoginPage', () => {
   it('has link to register page', () => {
     vi.mocked(useLogin).mockReturnValue({ mutate: vi.fn(), isPending: false } as unknown as ReturnType<typeof useLogin>)
     renderLogin()
-    expect(screen.getByRole('link', { name: /start free trial/i })).toHaveAttribute('href', '/register')
+    expect(screen.getByRole('link', { name: /sign up/i })).toHaveAttribute('href', '/register')
   })
 })
