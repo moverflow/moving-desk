@@ -1437,3 +1437,42 @@ one-field change vs. new UI/flow.
   Typecheck, lint, and production build all clean.
 
 ---
+
+## fix/feedback-modal-centering — DONE (2026-07-26)
+
+- Root cause: `FeedbackButton.tsx` opened its form in a shadcn `Sheet` with
+  `side="bottom"` — an edge-anchored slide-up drawer by design, not a
+  centered dialog. That was a leftover choice from when the modal was
+  first built, not something this task's fix needed to preserve.
+- Rather than keep Radix `Sheet`/`Dialog`, checked what "consistent with
+  the rest of the app" actually means here: grepped for every existing
+  modal and found none of them use a shadcn Dialog component at all — the
+  established pattern (`ConvertModal.tsx`, `UserMenu.tsx`'s logout confirm)
+  is a plain `fixed inset-0 flex items-center justify-center bg-black/40`
+  backdrop wrapping a `rounded-xl bg-white p-6 shadow-lg` card, with
+  `role="dialog" aria-modal="true"` and no Radix primitive underneath.
+  Rewrote `FeedbackButton` to that exact pattern instead of introducing a
+  new `ui/dialog.tsx` — matches two existing call sites rather than adding
+  a third pattern to the codebase.
+- Swapping away from Radix `Sheet` meant losing its built-in close button,
+  Escape handling via focus trap, and portal — added a manual `X` close
+  button (top-right, matching typical modal affordance) and backdrop-click-
+  to-close (inner card stops propagation, mirroring `UserMenu`'s confirm
+  dialog exactly) to keep the modal usable. No Escape-key handler was
+  added, since neither of the two existing plain-div modals in this
+  codebase has one either — matching the established pattern, not
+  upgrading past it.
+- Extracted a `FeedbackModal` sub-component (backdrop + card + header +
+  close button + submitted/form branch) to keep the default-exported
+  `FeedbackButton` under the 40-line guideline once the inline JSX grew
+  past what the Sheet version had — same reasoning as the `FeedbackForm`
+  split from the original feedback-button task.
+- Tests: `FeedbackButton.test.tsx` (+3, 8 total) — the backdrop element
+  carries `items-center justify-center` (direct regression guard for the
+  bug itself), the `X` button closes the modal, and a backdrop click closes
+  it while a click on the dialog card itself does not. The 5 existing
+  tests needed no changes — they queried by `role="dialog"` and visible
+  text/labels, none of which changed. Frontend: 258 passed (was 255).
+  Typecheck, lint, and production build all clean.
+
+---
