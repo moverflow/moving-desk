@@ -47,6 +47,7 @@ const orderSelectFields = {
   base_price: orders.base_price,
   total_price: orders.total_price,
   contract_status: orders.contract_status,
+  contract_token: orders.contract_token,
   contract_signed_at: orders.contract_signed_at,
   contract_signed_name: orders.contract_signed_name,
   created_at: orders.created_at,

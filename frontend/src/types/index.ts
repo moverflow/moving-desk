@@ -62,6 +62,7 @@ export interface Order {
   createdAt: string
   isOnline: boolean
   contractStatus: ContractStatus
+  contractToken?: string
   contractSignedName?: string
   contractSignedAt?: string
 }
