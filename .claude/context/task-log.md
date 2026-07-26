@@ -1357,3 +1357,38 @@ one-field change vs. new UI/flow.
   notification path; no screenshot attachment.
 
 ---
+
+## audit/26-guide-image-support — DONE (2026-07-26)
+
+- `guide-content.ts`'s `GuideBlock` placeholder variant gained an optional
+  `src?: string`, set to the exact paths the task specified on all 20
+  placeholder entries — both the 10 English and the 10 Russian ones, not
+  just the English half the task's list happened to enumerate. Deliberate:
+  a real screenshot is of the (English-only) app UI regardless of which
+  language the guide text is in, so both language versions of a given
+  section should show the same image once one exists.
+- `GuidePlaceholder.tsx` now renders `<img src={src} alt={label}>` when
+  `src` is set, with an `onError` handler flipping local `failed` state to
+  fall back to the original dashed-box-plus-label look — the exact
+  pre-this-task appearance, so a missing file never shows a broken-image
+  icon. No `src` (shouldn't happen now, all 20 have one, but kept as a
+  guard) skips the `<img>` entirely and goes straight to the fallback.
+  `GuideSectionView.tsx` passes `block.src` through — the only other
+  change needed.
+- Tests: rewrote the one `GuidePage.test.tsx` case that had asserted "no
+  img in the document" (no longer true or desired now that placeholders
+  can be real images) into two — one confirming the `Screenshot: Settings
+  → Company tab` placeholder now renders an `<img>` with the exact
+  `/guide/settings-company.png` src, and one firing a synthetic
+  `fireEvent.error()` on that `<img>` (jsdom doesn't attempt real network
+  loads, so a failure has to be simulated to exercise the fallback path at
+  all) and confirming the image disappears and the original label text
+  reappears. Frontend: 253 passed (was 252 — net +1, two tests replacing
+  one).
+- No PNG files were added — deliberately out of scope per the task
+  ("files will be added later"). `frontend/public/guide/` doesn't need to
+  exist yet either; a 404 on a missing static asset is exactly what
+  exercises the fallback path in production. Dropping a correctly-named
+  file into that folder now requires no further code changes.
+
+---
