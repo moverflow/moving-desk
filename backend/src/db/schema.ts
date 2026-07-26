@@ -401,6 +401,7 @@ export const notifications = pgTable('notifications', {
       | 'invoice_refunded'
       | 'invoice_disputed'
       | 'move_reminder'
+      | 'feedback_new'
     >()
     .notNull(),
 
@@ -409,9 +410,9 @@ export const notifications = pgTable('notifications', {
 
   // Polymorphic pointer to the record this is about — kept as a type + id pair
   // rather than one opaque string so the frontend can build the route without
-  // parsing. No FK: the target lives in one of three different tables.
+  // parsing. No FK: the target lives in one of four different tables.
   related_type: varchar('related_type', { length: 20 })
-    .$type<'order' | 'invoice' | 'lead'>(),
+    .$type<'order' | 'invoice' | 'lead' | 'feedback'>(),
   related_id: uuid('related_id'),
 
   read_at: timestamp('read_at'),
@@ -430,6 +431,26 @@ export const notifications = pgTable('notifications', {
   // (that flag is only set after a successful email send).
   tenantRelatedIdx: index('notifications_tenant_related_idx')
     .on(table.tenant_id, table.type, table.related_id),
+}))
+
+// ─── FEEDBACK ─────────────────────────────────────────────────────────────────
+// Pilot bug/feedback reports, submitted in-app. tenant_id and user_id are both
+// nullable — the button also renders on pages with no tenant context at all
+// (e.g. /guide), so a submission there has nowhere tenant-scoped to attach to.
+export const feedback = pgTable('feedback', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenant_id: uuid('tenant_id').references(() => tenants.id),
+  user_id: uuid('user_id').references(() => users.id),
+
+  message: text('message').notNull(),
+  page_url: text('page_url').notNull(),
+  severity: varchar('severity', { length: 20 }).$type<'bug' | 'suggestion' | 'other'>(),
+
+  created_at: timestamp('created_at').defaultNow(),
+},
+(table) => ({
+  // Direct DB review (no admin UI in this task): WHERE tenant_id = ? ORDER BY created_at DESC
+  tenantCreatedIdx: index('feedback_tenant_created_idx').on(table.tenant_id, table.created_at),
 }))
 
 // ─── STRIPE EVENTS ────────────────────────────────────────────────────────────
@@ -488,6 +509,9 @@ export type NewLead = typeof leads.$inferInsert
 
 export type Notification = typeof notifications.$inferSelect
 export type NewNotification = typeof notifications.$inferInsert
+
+export type Feedback = typeof feedback.$inferSelect
+export type NewFeedback = typeof feedback.$inferInsert
 
 export type StripeEvent = typeof stripeEvents.$inferSelect
 export type NewStripeEvent = typeof stripeEvents.$inferInsert

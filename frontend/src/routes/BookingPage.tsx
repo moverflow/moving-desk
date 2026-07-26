@@ -6,6 +6,7 @@ import { useBookingTenant } from '@/hooks/useBooking'
 import BookingForm from '@/components/booking/BookingForm'
 import BookingSuccess from '@/components/booking/BookingSuccess'
 import { getPersonInitials, formatPhone } from '@/lib/utils'
+import FeedbackButton from '@/components/shared/FeedbackButton'
 
 interface CompletedBooking {
   result: BookingResult
@@ -83,6 +84,7 @@ export default function BookingPage(): JSX.Element {
 
         <p className="text-center text-xs text-gray-400 mt-4">Powered by MovingDesk</p>
       </div>
+      <FeedbackButton />
     </div>
   )
 }

@@ -1290,3 +1290,70 @@ one-field change vs. new UI/flow.
   documentation, not registration/login copy.
 
 ---
+
+## audit/25-feedback-button — DONE (2026-07-26)
+
+- New `feedback` table (nullable `tenant_id`/`user_id`, `message`, `page_url`,
+  `severity` enum) — nullable by design, not an oversight: the button also
+  renders on `/guide`, which has no tenant context at all to attach a
+  submission to. Migration `0013_adorable_jazinda.sql` generated via
+  `drizzle-kit generate` and applied to the dev DB via `db:migrate`.
+  `notifications.type`/`related_type` `$type<>()` unions extended with
+  `'feedback_new'`/`'feedback'` — TS-only casts over a `varchar` column, so
+  this needed no migration of its own.
+- `POST /feedback` (`routes/feedback.ts`) — no `authMiddleware` (this route
+  must accept anonymous callers), rate-limited 10/hour per IP via the
+  existing `rateLimit()` middleware (same shape as `book.ts`'s booking
+  limiter). Added `resolveOptionalAuth()` to `middleware/auth.ts` — same
+  cookie/Bearer-token resolution as `authMiddleware`, but a missing or
+  invalid token resolves to `null` instead of a 401, since this endpoint
+  serves both logged-in and anonymous submitters. Deliberately duplicated
+  rather than refactoring `authMiddleware` to share it — that function is
+  security-critical and unrelated to this task's scope.
+- `services/feedback.service.ts`'s `createFeedback` inserts the row, then
+  calls the existing `createNotification` (tenant-scoped, swallow-and-log
+  on failure — unchanged) only when `tenantId` is non-null: a fully
+  anonymous submission (e.g. from `/guide`) has no owner inbox to raise a
+  bell alert in, so it's stored but silent by design, matching the task's
+  "no admin dashboard, a DB query is fine for now" scope note.
+- Frontend: `FeedbackButton.tsx` — a small fixed bottom-right trigger (icon
+  on mobile, "Report issue" label from `sm:` up) opening a bottom `Sheet`
+  with a `Textarea`, a native `<select>` severity picker (Bug/Suggestion/
+  Other — skipped the Radix `Select` used elsewhere on purpose, three
+  options don't need it and native avoids the jsdom Pointer Capture
+  polyfill dance that component needed in `OrderDetailSheet.test.tsx`),
+  and a Submit button disabled until the message is non-empty. `page_url`
+  auto-fills from `window.location.pathname`. On success shows "Thanks, we
+  got it!" and clears the field; on failure the typed message is left
+  exactly as-is (only a success clears it) and an inline error shows,
+  satisfying the "don't lose what was typed" AC. Split the form itself out
+  into a `FeedbackForm` sub-component to keep both functions under the
+  40-line guideline. Mounted once in `AppShell.tsx` (covers every
+  authenticated route through `<Outlet/>`) and individually in
+  `BookingPage.tsx` and `GuidePage.tsx`, the two public pages named in the
+  task.
+- `useSubmitFeedback` (`hooks/useFeedback.ts`) is a thin `useMutation`
+  wrapper over `apiFetch('/feedback')` — no auth-state branching needed on
+  the frontend at all, since `apiFetch` already attaches a Bearer token
+  only when one exists in storage and the backend resolves anonymity
+  itself.
+- Tests: `feedback.service.test.ts` (+5 — authenticated insert, anonymous
+  insert with null tenant/user, notification raised with the right title/
+  body/relatedId, notification skipped when tenantId is null, long-message
+  truncation in the notification body vs. full storage in the row).
+  `feedback.test.ts` route tests (+7 — authenticated, anonymous, a
+  stale/invalid token treated as anonymous rather than rejected, empty
+  message / missing pageUrl / invalid severity all 400, and a rate-limit
+  burst test mirroring `book.test.ts`'s pattern exactly: 10 through, then
+  429). `FeedbackButton.test.tsx` (+5 — closed by default, opens with the
+  expected fields, submits with confirmation, failure keeps the typed
+  text and shows an error, Submit disabled until non-empty). Backend: 364
+  passed (was 352). Frontend: 252 passed (was 247) — `GuidePage.test.tsx`
+  needed a `QueryClientProvider` wrapper added, since `FeedbackButton`
+  pulled `useMutation` into a page that previously had no react-query
+  hooks in its tree at all.
+- Out of scope, untouched per the task: no admin UI to browse feedback
+  (direct DB query is enough for now, as the task says); no email
+  notification path; no screenshot attachment.
+
+---

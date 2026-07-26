@@ -16,6 +16,7 @@ const TYPE_ICONS: Record<AppNotification['type'], string> = {
   contract_signed: '✍️',
   invoice_paid: '💰',
   move_reminder: '🚚',
+  feedback_new: '💬',
 }
 
 interface NotificationRowProps {

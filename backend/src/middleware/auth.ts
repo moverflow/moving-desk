@@ -1,4 +1,4 @@
-import type { MiddlewareHandler } from 'hono'
+import type { Context, MiddlewareHandler } from 'hono'
 import { getCookie } from 'hono/cookie'
 import { eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
@@ -6,6 +6,31 @@ import { subscriptions } from '../db/schema.js'
 import { verifyToken } from '../lib/jwt.js'
 import { getAuthContext } from '../services/auth.service.js'
 import type { JwtPayload } from '../types/index.js'
+
+// For endpoints that accept both logged-in and anonymous requests (e.g.
+// feedback submission from a public page). Unlike authMiddleware, a missing
+// or invalid token is not an error here — it just means an anonymous caller.
+export async function resolveOptionalAuth(
+  c: Context,
+): Promise<{ userId: string; tenantId: string } | null> {
+  let token = getCookie(c, 'token')
+  if (!token) {
+    const authHeader = c.req.header('Authorization')
+    if (authHeader?.startsWith('Bearer ')) {
+      token = authHeader.slice(7)
+    }
+  }
+  if (!token) return null
+
+  try {
+    const payload = await verifyToken(token)
+    const auth = await getAuthContext(payload.sub)
+    if (!auth || payload.tenantId !== auth.tenantId) return null
+    return { userId: auth.userId, tenantId: auth.tenantId }
+  } catch {
+    return null
+  }
+}
 
 export const authMiddleware: MiddlewareHandler = async (c, next) => {
   // Primary: httpOnly cookie (secure, works everywhere except iOS Safari

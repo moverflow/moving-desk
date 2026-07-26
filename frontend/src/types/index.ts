@@ -338,9 +338,11 @@ export interface CreateOrderData {
   notes?: string
 }
 
-export type NotificationType = 'lead_new' | 'contract_signed' | 'invoice_paid' | 'move_reminder'
+export type NotificationType = 'lead_new' | 'contract_signed' | 'invoice_paid' | 'move_reminder' | 'feedback_new'
 
-export type NotificationRelatedType = 'order' | 'invoice' | 'lead'
+export type NotificationRelatedType = 'order' | 'invoice' | 'lead' | 'feedback'
+
+export type FeedbackSeverity = 'bug' | 'suggestion' | 'other'
 
 // Named AppNotification because `Notification` is a DOM global — an exported
 // interface with that name would shadow it wherever this module is imported.

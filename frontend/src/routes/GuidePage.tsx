@@ -4,6 +4,7 @@ import { GUIDE_CONTENT, GUIDE_UI_STRINGS, type GuideLang } from '@/lib/guide-con
 import GuideToc from '@/components/guide/GuideToc'
 import GuideSectionView from '@/components/guide/GuideSectionView'
 import GuideLanguageToggle from '@/components/guide/GuideLanguageToggle'
+import FeedbackButton from '@/components/shared/FeedbackButton'
 
 export default function GuidePage(): JSX.Element {
   const [lang, setLang] = useState<GuideLang>('en')
@@ -37,6 +38,7 @@ export default function GuidePage(): JSX.Element {
           </main>
         </div>
       </div>
+      <FeedbackButton />
     </div>
   )
 }
