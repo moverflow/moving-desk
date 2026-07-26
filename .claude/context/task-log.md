@@ -1162,3 +1162,58 @@ one-field change vs. new UI/flow.
   setup-critical ones.
 
 ---
+
+## audit/22-order-crew-assignment — DONE (2026-07-26)
+
+- `components/shared/OrderDetailSheet.tsx` — new `CrewField` (dropdown of the
+  tenant's crews, same `useCrews()`/label format as `CrewNotesFields.tsx` on
+  `NewOrderPage`) alongside the existing `StatusField`, wired to the same
+  `PATCH /orders/:id` the Status field already used — no backend changes
+  needed for the write path itself, exactly as the task described. A
+  Radix-Select-safe `UNASSIGNED` sentinel represents "no crew" (Radix
+  `Select.Item` can't take an empty-string value), mapped back to `null`
+  right before the mutate call, so a crew can also be explicitly cleared,
+  not just set once.
+- Incidental but blocking bug found and fixed during validation, in scope
+  because it directly prevented this task's own acceptance criteria: the
+  Sheet always resent the *current* `status` on every Save (pre-existing
+  behavior, unchanged by this task's diff), but the backend's
+  `patchOrderSchema` deliberately excludes `'new'` from its status enum
+  (you only ever transition out of `new`, never back into it) — so an
+  unchanged 'new' status 400'd the whole PATCH and silently blocked crewId
+  from ever persisting. Since every booking-page-converted order starts in
+  `'new'` status, this hit exactly the scenario the task describes. Fixed
+  by omitting `status` from the request entirely when it hasn't changed
+  (`useUpdateOrderStatus` in `hooks/useOrders.ts`, and the sheet's
+  `handleSave`) — confirmed via direct `curl PATCH` calls that this was a
+  real backend rejection, not a test-timing artifact, before touching
+  anything.
+- Tests: extended `routes/orders.test.ts` with a new `PATCH /orders/:id —
+  crew assignment` describe block (+6: assign, reassign, unassign via
+  explicit `null`, crew-only update never checks `isValidTransition`,
+  malformed-UUID 400, no-auth 401 — this route had zero PATCH coverage
+  before). New `components/shared/OrderDetailSheet.test.tsx` (6 — first
+  coverage this component has ever had: pre-selects Unassigned/the current
+  crew, assign, reassign, unassign, and the status-omission regression
+  test). Also added a jsdom Pointer Capture / `scrollIntoView` polyfill to
+  `src/test/setup.ts` — this was the first test in the repo to click-drive
+  a Radix `Select`, and jsdom doesn't implement those APIs at all (same
+  category as the existing `ResizeObserver`/`PointerEvent` polyfills already
+  there for Radix). Backend 352 passed (was 346 on this branch's base),
+  frontend 243 passed (was 237).
+- Verified live end-to-end, matching the exact real-world scenario: created
+  a lead via `POST /book/:slug` (the public booking flow), converted it to
+  an order via `POST /leads/:id/convert` — confirmed `crew_id: null` and
+  status `'new'`, exactly as the task describes — then, in a real browser,
+  opened the order, confirmed it showed "Unassigned", assigned a crew, and
+  confirmed via a fresh API read that it persisted. Logged in separately as
+  that crew member at `/crew` and confirmed the job now appears in their
+  job list (screenshot). Also verified reassigning to a second crew updates
+  the same order correctly. This second pass is what caught the status/'new'
+  bug above — the first attempt silently failed to persist, which is why
+  the fix above exists at all.
+- Out of scope, untouched per the task: `NewOrderPage`'s own crew selection
+  at creation time; the booking page flow itself; `getCrewJobs`'s filter
+  logic (confirmed correct as-is, not modified).
+
+---

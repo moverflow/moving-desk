@@ -39,13 +39,15 @@ vi.mock('../services/auth.service.js', async () => {
 const getOrderByIdMock = vi.fn()
 const createOrderMock = vi.fn()
 const findOrCreateClientMock = vi.fn()
+const updateOrderMock = vi.fn()
+const isValidTransitionMock = vi.fn()
 vi.mock('../services/orders.service.js', () => ({
   createOrder: (...args: unknown[]) => createOrderMock(...args),
   findOrCreateClient: (...args: unknown[]) => findOrCreateClientMock(...args),
   getOrderById: (...args: unknown[]) => getOrderByIdMock(...args),
-  isValidTransition: vi.fn(),
+  isValidTransition: (...args: unknown[]) => isValidTransitionMock(...args),
   listOrders: vi.fn(),
-  updateOrder: vi.fn(),
+  updateOrder: (...args: unknown[]) => updateOrderMock(...args),
   sendOrderCompletedEmail: vi.fn(),
 }))
 
@@ -117,6 +119,8 @@ beforeEach(() => {
   deleteOrderFileMock.mockReset()
   resolveOrderFileUrlMock.mockClear()
   sendContractForOrderMock.mockReset()
+  updateOrderMock.mockReset()
+  isValidTransitionMock.mockReset().mockReturnValue(true)
 })
 
 describe('POST /orders — pricing', () => {
@@ -245,6 +249,96 @@ describe('GET /orders/:id', () => {
   it('rejects a request with no auth cookie with 401', async () => {
     const res = await app.request(`/orders/${ORDER_ID}`)
     expect(res.status).toBe(401)
+  })
+})
+
+const CREW_A = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee'
+const CREW_B = 'bbbbbbbb-cccc-4ddd-8eee-ffffffffffff'
+
+// The whole point of this task: orders booked through the public booking
+// page start with crew_id null and had no write path to assign one — this
+// exercises that PATCH /orders/:id already accepts and persists crewId,
+// independent of any status change.
+describe('PATCH /orders/:id — crew assignment', () => {
+  it('assigns a crew to an order that has none (e.g. a booking-page order)', async () => {
+    getOrderByIdMock.mockResolvedValue({ ...order, status: 'confirmed', crew_id: null })
+    updateOrderMock.mockResolvedValue({ ...order, status: 'confirmed', crew_id: CREW_A })
+
+    const res = await app.request(`/orders/${ORDER_ID}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Cookie: await authCookie() },
+      body: JSON.stringify({ crewId: CREW_A }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(updateOrderMock).toHaveBeenCalledWith(TENANT_A, ORDER_ID, expect.objectContaining({ crewId: CREW_A }))
+    const body = await res.json()
+    expect(body.order.crew_id).toBe(CREW_A)
+  })
+
+  it('reassigns an order already assigned to one crew, to a different crew', async () => {
+    getOrderByIdMock.mockResolvedValue({ ...order, status: 'confirmed', crew_id: CREW_A })
+    updateOrderMock.mockResolvedValue({ ...order, status: 'confirmed', crew_id: CREW_B })
+
+    const res = await app.request(`/orders/${ORDER_ID}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Cookie: await authCookie() },
+      body: JSON.stringify({ crewId: CREW_B }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(updateOrderMock).toHaveBeenCalledWith(TENANT_A, ORDER_ID, expect.objectContaining({ crewId: CREW_B }))
+  })
+
+  it('unassigns a crew by sending crewId: null', async () => {
+    getOrderByIdMock.mockResolvedValue({ ...order, status: 'confirmed', crew_id: CREW_A })
+    updateOrderMock.mockResolvedValue({ ...order, status: 'confirmed', crew_id: null })
+
+    const res = await app.request(`/orders/${ORDER_ID}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Cookie: await authCookie() },
+      body: JSON.stringify({ crewId: null }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(updateOrderMock).toHaveBeenCalledWith(TENANT_A, ORDER_ID, expect.objectContaining({ crewId: null }))
+  })
+
+  it('assigns a crew without requiring a status change, and never checks status transitions for it', async () => {
+    getOrderByIdMock.mockResolvedValue({ ...order, status: 'new', crew_id: null })
+    updateOrderMock.mockResolvedValue({ ...order, status: 'new', crew_id: CREW_A })
+
+    const res = await app.request(`/orders/${ORDER_ID}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Cookie: await authCookie() },
+      body: JSON.stringify({ crewId: CREW_A }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(isValidTransitionMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects a malformed crewId with 400', async () => {
+    getOrderByIdMock.mockResolvedValue({ ...order, status: 'confirmed', crew_id: null })
+
+    const res = await app.request(`/orders/${ORDER_ID}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Cookie: await authCookie() },
+      body: JSON.stringify({ crewId: 'not-a-uuid' }),
+    })
+
+    expect(res.status).toBe(400)
+    expect(updateOrderMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects a request with no auth cookie with 401', async () => {
+    const res = await app.request(`/orders/${ORDER_ID}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ crewId: CREW_A }),
+    })
+    expect(res.status).toBe(401)
+    expect(updateOrderMock).not.toHaveBeenCalled()
   })
 })
 

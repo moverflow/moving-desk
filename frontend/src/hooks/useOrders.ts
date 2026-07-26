@@ -105,10 +105,14 @@ export function useCreateOrder() {
 export function useUpdateOrderStatus() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: OrderStatus }) =>
+    // status is omitted entirely when unchanged — the backend's PATCH schema
+    // deliberately excludes 'new' as a settable value (you only ever
+    // transition out of it), so resending an unchanged 'new' status would
+    // 400 and block the crewId update riding alongside it.
+    mutationFn: ({ id, status, crewId }: { id: string; status?: OrderStatus; crewId: string | null }) =>
       apiFetch<{ order: RawOrder }>(`/orders/${id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ ...(status !== undefined ? { status } : {}), crewId }),
       }).then((res) => mapOrder(res.order)),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
   })
