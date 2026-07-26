@@ -996,3 +996,44 @@ one-field change vs. new UI/flow.
 - Out of scope, untouched per the task: leads pipeline UI/statuses.
 
 ---
+
+## audit/18-invite-copy-link — DONE (2026-07-26)
+
+- `routes/users.ts` — `POST /users/invite` now returns `token` alongside
+  `message`/`email` in its 201 response (this route had zero prior test
+  coverage — a new `routes/users.test.ts` covers it now). The token was
+  already generated and mailed via `sendInviteEmail`, which is fire-and-
+  forget (`.catch` just logs) — so if Resend isn't configured or delivery
+  silently fails, the owner previously had no way to get the join link at
+  all.
+- `hooks/useSettings.ts` — `useInviteMember`'s response type now includes
+  `token: string`.
+- `components/shared/TeamTab.tsx` — new `InviteSentBanner` shows the invite
+  link with a "Copy link" button (same pattern as `BookingTab.tsx` from
+  task 16), and stays visible with no auto-hide timer — the owner may need
+  a moment to copy it, and it's the only fallback if email delivery fails.
+  Replaces the previous plain `sent: boolean` + 3-second-timeout state.
+- Tests: new `routes/users.test.ts` (5 — first coverage `POST /users/invite`
+  has ever had: token-in-response, plan-limit 422, duplicate-email 409,
+  missing-crewId 400, no-auth 401) and new `components/shared/
+  TeamTab.test.tsx` (5: banner appears with link + Copy button, clicking
+  Copy actually writes the link to the clipboard via `@testing-library/
+  user-event`'s real Clipboard stub, banner has no auto-hide, backend error
+  surfaces, crew-invite validation). Updated `routes/SettingsPage.test.tsx`'s
+  existing `useInviteMember` mock and one stale assertion (`'Invite sent!'`)
+  that predated this task's banner copy. Backend 337 passed (was 332),
+  frontend 219 passed (was 214).
+- Review: extracted `TeamMemberList` and `InviteRoleFields` from
+  `TeamTab.tsx`'s default export (was 101 lines pre-existing); the remaining
+  `InviteMemberForm` sits at 51 lines — same documented judgment call as
+  `BookingTab.tsx` in task 16 (mutation-state handling tightly coupled to
+  local state, not mechanically separable JSX).
+- Verified live: registered a tenant, sent a real invite through the actual
+  UI at a 375px mobile viewport (Playwright), confirmed the link renders and
+  "Copy link" writes the correct `/join?token=...` URL to the clipboard —
+  screenshots in scratchpad, not committed (no visual regression risk here,
+  unlike task 13's mobile-responsiveness fixes).
+- Out of scope, untouched per the task: the `/join` accept-invite flow
+  itself; invite expiry/single-use enforcement.
+
+---
