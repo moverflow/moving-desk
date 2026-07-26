@@ -49,7 +49,7 @@ function setupMocks() {
   vi.mocked(useUploadLogo).mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue({ url: '' }), isPending: false } as unknown as ReturnType<typeof useUploadLogo>)
   vi.mocked(useTeam).mockReturnValue({ data: MOCK_TEAM } as unknown as ReturnType<typeof useTeam>)
   vi.mocked(useInviteMember).mockReturnValue({
-    mutate: vi.fn((_email, opts) => opts?.onSuccess?.({ message: 'Invite sent', email: _email })),
+    mutate: vi.fn((input, opts) => opts?.onSuccess?.({ message: 'Invite sent', email: input.email, token: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee' })),
     isPending: false,
   } as unknown as ReturnType<typeof useInviteMember>)
   vi.mocked(useRemoveMember).mockReturnValue({ mutate: vi.fn(), isPending: false } as unknown as ReturnType<typeof useRemoveMember>)
@@ -132,7 +132,7 @@ describe('SettingsPage', () => {
     await user.type(screen.getByPlaceholderText(/teammate/i), 'new@team.com')
     await user.click(screen.getByRole('button', { name: /send invite/i }))
     await waitFor(() => {
-      expect(screen.getByText('Invite sent!')).toBeInTheDocument()
+      expect(screen.getByText(/invite sent to new@team\.com/i)).toBeInTheDocument()
     })
   })
 })

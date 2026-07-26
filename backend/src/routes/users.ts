@@ -76,7 +76,10 @@ usersRouter.post('/invite', authMiddleware, requireOwner, async (c) => {
   const invite = await createInvite(tenantId, email, role, crewId)
   sendInviteEmail(email, invite.token)
 
-  return c.json({ message: 'Invite sent', email }, 201)
+  // The token is returned alongside the email send (not just relied on
+  // arriving by mail) so the owner can copy the join link themselves if
+  // delivery fails or isn't configured — see TeamTab.tsx.
+  return c.json({ message: 'Invite sent', email, token: invite.token }, 201)
 })
 
 usersRouter.post('/join', async (c) => {
