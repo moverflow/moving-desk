@@ -882,3 +882,45 @@ None.
   established pattern for slide-over panels in this codebase.
 
 ---
+
+## incident/prod-migration-duplicate-invoice-numbers — RESOLVED (2026-07-26)
+
+Production Railway deploy of PR #53 (payment-handling, S6) failed:
+`could not create unique index invoices_tenant_number_idx` — duplicate
+`(tenant_id, number) = (33b29222-392a-408b-a0c3-115336acd98f, INV-1036)`.
+
+- Connected read-only first (`BEGIN TRANSACTION READ ONLY`) to the real prod
+  Neon DB (`backend/.env` → `NEON_BRANCH=production`).
+- Found exactly **one** duplicate pair in the whole `invoices` table (not
+  multiple) — a full `GROUP BY (tenant_id, number) HAVING count(*) > 1` scan
+  confirmed it.
+- Tenant `33b29222-392a-408b-a0c3-115336acd98f` = "Best Pro 3" (slug
+  `best-pro-3`) — **not** the previously-flagged "Delivery Probe Co"
+  (`abb8543a-…`, task 09) — a different dev/test tenant. Owner
+  `bestpro3@gmail.com` ("Yurii"), plus a `crew@test.com` "Test Crew" user.
+  All 35 other invoices on this tenant were created within a 13-second window
+  (bulk seed-script run); one row's client/address data exactly matched the
+  hardcoded `CLIENT_DATA`/`ADDRESSES` arrays in `scripts/seed-analytics.ts`;
+  the other row's client was literally "Yurii" / `bestmover.flow@gmail.com`
+  (the developer's own identity, same address used throughout the task-09
+  email investigation) with informal placeholder addresses — a manual test
+  order. Root cause: a live instance of the exact S6 bug PR #53 fixes — the
+  seed script and the app's own (pre-fix) `count(*)+1001` numbering both
+  landed on 1036 five days apart, with neither aware of the other.
+  **Confirmed test/demo data, not a real pilot customer — safe to resolve.**
+- Fix: renumbered the later (app-generated, `sent`-status) row from `INV-1036`
+  to `INV-1037` — a single `UPDATE`, not a delete, to stay minimally invasive.
+  Verified zero duplicates remain anywhere in the table afterward, and that
+  the total invoice count (39) and tenant count (7) were unchanged (only a
+  rename happened, nothing added/removed).
+- Confirmed the migration will now pass: ran the **exact** pending SQL from
+  `drizzle/0011_numerous_invisible_woman.sql` +
+  `drizzle/0012_lucky_the_twelve.sql` against real production data inside a
+  transaction, verified every object (`stripe_events`, `invoice_counters`,
+  both indexes, the FK) was created without error, then `ROLLBACK` — proven
+  safe against actual current data with zero lasting side effects, and
+  confirmed via a follow-up read that the dry-run objects were indeed gone
+  afterward (the rollback held).
+- Next deploy attempt should now pass this migration cleanly.
+
+---
