@@ -924,3 +924,39 @@ Production Railway deploy of PR #53 (payment-handling, S6) failed:
 - Next deploy attempt should now pass this migration cleanly.
 
 ---
+
+## audit/16-fix-booking-enabled-default — DONE (2026-07-26)
+
+Follow-up to audit/15 (diagnosis only, no fix). Chose option (a) from the task
+— default `booking_enabled: true` at tenant creation — over building an
+onboarding-step prompt: it fully guarantees the acceptance criterion (no
+"owner skipped the prompt" gap an onboarding step would leave open), and is a
+one-field change vs. new UI/flow.
+
+- `services/auth.service.ts` — `registerTenantAndUser`'s tenant insert now
+  sets `booking_enabled: true`. Verified live: a fresh `/auth/register` call
+  followed immediately by `GET /book/:slug` (no Settings visit at all)
+  returns 200 with the tenant payload.
+- `BookingTab.tsx` — "Copy link"/"Open →" now read the *persisted*
+  `settings.bookingEnabled`, not the local (possibly unsaved) switch state:
+  disabled + amber "Enable booking above to activate this link." message
+  whenever the link would actually 404. Verified live, including the
+  easy-to-get-wrong edge case: flipping the switch on locally without
+  clicking Save keeps the buttons disabled (matches reality — the link still
+  doesn't work until Save lands), and `GET /book/:slug` genuinely 404s in
+  that state, confirmed via curl against the same running instance.
+- Tests: new `services/auth.service.test.ts` (2 — first coverage
+  `registerTenantAndUser` has ever had) and `components/shared/
+  BookingTab.test.tsx` (4, including the unsaved-toggle case). Backend 326
+  passed (was 324), frontend 214 passed (was 210).
+- Review: extracted `BookingLinkControls`, `BookingEnableSwitch`,
+  `BookingDescriptionField` from `BookingTab.tsx` (was 77 lines pre-existing,
+  now 51 — the remainder is pre-existing hook/state logic, further extraction
+  into a custom hook felt disproportionate for a settings tab). Left
+  `registerTenantAndUser` at 69 lines (64 pre-existing + 5 for this change) —
+  same reasoning: a one-field addition to already-oversized, security-
+  sensitive transaction logic isn't the place to attempt a bigger refactor.
+- Out of scope, untouched per the task: `getPublicTenant`/`/book/:slug` route
+  logic itself; subscription/plan logic.
+
+---

@@ -110,6 +110,11 @@ export async function registerTenantAndUser(params: {
         slug: params.slug,
         plan: 'trial',
         trial_ends_at: trialEndsAt,
+        // The public booking page should work the moment a company signs up —
+        // every prior tenant otherwise 404s on /book/:slug until an owner
+        // independently discovers and flips the Settings → Booking toggle,
+        // which nothing in onboarding ever prompts them to do.
+        booking_enabled: true,
       })
       .returning()
 
