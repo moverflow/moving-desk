@@ -8,10 +8,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 // await, or `.limit()`) shifts the next row set off the shared queue — so however
 // many joins a given query has, each top-level select still pulls exactly one
 // pre-queued result, in call order.
-const { updateReturnQueue, selectQueue, updateSets } = vi.hoisted(() => ({
+const { updateReturnQueue, selectQueue, updateSets, insertReturnQueue, insertCalls } = vi.hoisted(() => ({
   updateReturnQueue: [] as unknown[][],
   selectQueue: [] as unknown[][],
   updateSets: [] as unknown[],
+  insertReturnQueue: [] as unknown[][],
+  insertCalls: { count: 0 },
 }))
 
 vi.mock('../db/index.js', () => {
@@ -30,9 +32,25 @@ vi.mock('../db/index.js', () => {
     }
     return chain
   }
+  // Services one shared queue across seedInvoiceCounter's onConflictDoNothing()
+  // upsert and nextInvoiceNumber's onConflictDoUpdate()/.returning() upsert, plus
+  // the final invoices insert — all three go through the same chain shape.
+  function insertChain(): unknown {
+    const chain = {
+      values: () => chain,
+      onConflictDoNothing: () => Promise.resolve(undefined),
+      onConflictDoUpdate: () => chain,
+      returning: () => Promise.resolve(insertReturnQueue.shift() ?? []),
+    }
+    return chain
+  }
   return {
     db: {
       select: () => selectChain(),
+      insert: () => {
+        insertCalls.count += 1
+        return insertChain()
+      },
       update: () => ({
         set: (v: unknown) => {
           updateSets.push(v)
@@ -58,11 +76,17 @@ vi.mock('./notifications.service.js', () => ({
   createNotification: (...a: unknown[]) => createNotificationMock(...a),
 }))
 
-const { markInvoicePaidFromSession, markInvoiceRefunded, markInvoiceDisputed, clearInvoiceCheckoutSession } =
-  await import('./invoices.service.js')
+const {
+  markInvoicePaidFromSession,
+  markInvoiceRefunded,
+  markInvoiceDisputed,
+  clearInvoiceCheckoutSession,
+  generateInvoice,
+} = await import('./invoices.service.js')
 
 const TENANT_A = '11111111-1111-1111-1111-111111111111'
 const INVOICE_ID = '77777777-7777-4777-8777-777777777777'
+const ORDER_ID = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee'
 
 function emailRow(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
@@ -81,6 +105,8 @@ beforeEach(() => {
   updateReturnQueue.length = 0
   selectQueue.length = 0
   updateSets.length = 0
+  insertReturnQueue.length = 0
+  insertCalls.count = 0
   createNotificationMock.mockReset()
   createNotificationMock.mockResolvedValue(undefined)
 })
@@ -207,5 +233,35 @@ describe('clearInvoiceCheckoutSession', () => {
   it('S1 — clears the stale session id without touching status', async () => {
     await clearInvoiceCheckoutSession(INVOICE_ID)
     expect(updateSets[0]).toEqual({ stripe_checkout_session_id: null })
+  })
+})
+
+// Server-side parity with the contract flow's send-contract gate
+// (routes/orders.ts: order.status === 'new' -> 409) — the frontend's
+// eligibleOrders filter is cosmetic and must not be the only guard.
+describe('generateInvoice — order status gate', () => {
+  it.each(['new', 'confirmed', 'in_progress'])(
+    'rejects with invalid_status for an order still in "%s" status',
+    async (status) => {
+      selectQueue.push([{ id: ORDER_ID, status, totalPrice: 480 }])
+
+      const result = await generateInvoice(TENANT_A, ORDER_ID)
+
+      expect(result).toEqual({ ok: false, reason: 'invalid_status' })
+      expect(insertCalls.count).toBe(0)
+    },
+  )
+
+  it.each(['completed', 'closed'])('creates the invoice for an order in "%s" status', async (status) => {
+    selectQueue.push([{ id: ORDER_ID, status, totalPrice: 480 }])
+    // seedInvoiceCounter's existence check short-circuits its own insert.
+    selectQueue.push([{ tenantId: TENANT_A }])
+    insertReturnQueue.push([{ lastNumber: 1001 }])
+    const invoice = { id: 'inv-1', tenant_id: TENANT_A, order_id: ORDER_ID, number: 'INV-1001', status: 'draft' }
+    insertReturnQueue.push([invoice])
+
+    const result = await generateInvoice(TENANT_A, ORDER_ID)
+
+    expect(result).toEqual({ ok: true, invoice })
   })
 })

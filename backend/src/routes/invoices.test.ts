@@ -148,6 +148,24 @@ describe('POST /invoices', () => {
     })
   })
 
+  // Server-side parity with the contract flow's send-contract gate — the
+  // frontend's eligibleOrders filter must not be the only thing preventing
+  // this, since it's bypassable by a direct API call.
+  it('returns 409, not 201, when the order is not completed/closed yet', async () => {
+    generateInvoiceMock.mockResolvedValue({ ok: false, reason: 'invalid_status' })
+
+    const res = await app.request('/invoices', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: await authCookie() },
+      body: JSON.stringify({ orderId: ORDER_ID }),
+    })
+
+    expect(res.status).toBe(409)
+    expect((await res.json()) as { error: string }).toMatchObject({
+      error: expect.stringContaining('Complete the order'),
+    })
+  })
+
   it('requires auth', async () => {
     const res = await app.request('/invoices', {
       method: 'POST',

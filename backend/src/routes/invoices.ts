@@ -62,6 +62,9 @@ invoicesRouter.post('/', authMiddleware, async (c) => {
   const generated = await generateInvoice(c.get('tenantId'), result.data.orderId)
   if (!generated.ok) {
     if (generated.reason === 'not_found') return c.json({ error: 'Order not found' }, 404)
+    if (generated.reason === 'invalid_status') {
+      return c.json({ error: 'Complete the order before invoicing it' }, 409)
+    }
     return c.json({ error: 'This order has no price set yet. Set a price before invoicing it.' }, 422)
   }
   return c.json({ invoice: generated.invoice }, 201)
