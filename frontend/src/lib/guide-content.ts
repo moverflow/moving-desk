@@ -115,7 +115,8 @@ const en: GuideSection[] = [
       {
         type: 'list',
         items: [
-          'Crew members log in at /crew/login using the credentials created via the Team tab invite (see the Settings walkthrough above).',
+          'Crew members log in at /login using the credentials created via the Team tab invite (see the Settings walkthrough above).',
+          'Crew members can use /crew page for managing their jobs and notifications.',
           'If an email invite does not arrive (see Known limitations below), use the "Copy link" shown after clicking "Send invite" to share the join link manually — texting or messaging it works fine.',
           'Known quirk: occasionally, after refreshing the PWA page, you may see a blank white screen. Simply log in again if this happens — no data is lost.',
         ],
