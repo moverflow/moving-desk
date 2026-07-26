@@ -4,7 +4,7 @@ export type GuideBlock =
   | { type: 'p'; text: string }
   | { type: 'list'; items: string[] }
   | { type: 'subheading'; text: string }
-  | { type: 'placeholder'; label: string }
+  | { type: 'placeholder'; label: string; src?: string }
 
 export interface GuideSection {
   id: string
@@ -49,7 +49,7 @@ const en: GuideSection[] = [
         type: 'p',
         text: 'Set your base rates by home size, packing fee, timezone, and logo here. These settings drive pricing everywhere in the app from one place — the New Order price preview, the public booking page, and invoices all pull from the same numbers, so you only need to update them once.',
       },
-      { type: 'placeholder', label: 'Screenshot: Settings → Company tab' },
+      { type: 'placeholder', label: 'Screenshot: Settings → Company tab', src: '/guide/settings-company.png' },
       {
         type: 'subheading',
         text: 'Team vs. Crews — read this carefully, it confused testers before you',
@@ -61,8 +61,8 @@ const en: GuideSection[] = [
           'Team tab = where you invite actual user logins, including logins for crew members. When you invite someone, pick role "Crew member" and select which Crew profile (from the Crews tab) that login should be tied to.',
         ],
       },
-      { type: 'placeholder', label: 'Screenshot: Settings → Team tab, invite form' },
-      { type: 'placeholder', label: 'Screenshot: Settings → Crews tab' },
+      { type: 'placeholder', label: 'Screenshot: Settings → Team tab, invite form', src: '/guide/settings-team-invite.png' },
+      { type: 'placeholder', label: 'Screenshot: Settings → Crews tab', src: '/guide/settings-crews.png' },
       {
         type: 'subheading',
         text: 'Booking tab',
@@ -75,7 +75,7 @@ const en: GuideSection[] = [
         type: 'p',
         text: 'Note: the booking calendar only shows available dates once you have at least one crew added (Settings → Crews). Add a crew before you share this link with real clients, or the calendar will look empty.',
       },
-      { type: 'placeholder', label: 'Screenshot: Settings → Booking tab' },
+      { type: 'placeholder', label: 'Screenshot: Settings → Booking tab', src: '/guide/settings-booking.png' },
     ],
   },
   {
@@ -90,7 +90,7 @@ const en: GuideSection[] = [
         type: 'p',
         text: 'Convert a lead into an Order whenever you are ready to commit to the job. Note: orders created this way (or created directly through the public booking page) start out with no crew assigned — go to the order detail panel and assign a crew there before the move date.',
       },
-      { type: 'placeholder', label: 'Screenshot: Leads tab with a new lead' },
+      { type: 'placeholder', label: 'Screenshot: Leads tab with a new lead', src: '/guide/leads-new-lead.png' },
     ],
   },
   {
@@ -101,7 +101,7 @@ const en: GuideSection[] = [
         type: 'p',
         text: 'Open the order detail panel, find the Crew field, select a crew, and click Save. This step is required for the crew member to see the job in their mobile app — an order with no crew assigned will not show up for anyone.',
       },
-      { type: 'placeholder', label: 'Screenshot: Order detail panel, Crew field' },
+      { type: 'placeholder', label: 'Screenshot: Order detail panel, Crew field', src: '/guide/order-crew-field.png' },
     ],
   },
   {
@@ -116,7 +116,7 @@ const en: GuideSection[] = [
           'Known quirk: occasionally, after refreshing the PWA page, you may see a blank white screen. Simply log in again if this happens — no data is lost.',
         ],
       },
-      { type: 'placeholder', label: 'Screenshot: Crew mobile PWA, job view' },
+      { type: 'placeholder', label: 'Screenshot: Crew mobile PWA, job view', src: '/guide/crew-pwa-job-view.png' },
     ],
   },
   {
@@ -131,7 +131,7 @@ const en: GuideSection[] = [
           'Once the client signs, the panel shows the signature date and a link to view or download the signed PDF.',
         ],
       },
-      { type: 'placeholder', label: 'Screenshot: Order detail panel, Contract section' },
+      { type: 'placeholder', label: 'Screenshot: Order detail panel, Contract section', src: '/guide/order-contract-section.png' },
     ],
   },
   {
@@ -146,7 +146,7 @@ const en: GuideSection[] = [
           'Once the link is available, copy it (if the email does not arrive) and share it with the client. They can pay by card using the link — in test mode, use card 4242 4242 4242 4242, any future expiry date, and any CVC.',
         ],
       },
-      { type: 'placeholder', label: 'Screenshot: Invoice detail, Send to client / Copy link' },
+      { type: 'placeholder', label: 'Screenshot: Invoice detail, Send to client / Copy link', src: '/guide/invoice-send-share.png' },
     ],
   },
   {
@@ -157,7 +157,7 @@ const en: GuideSection[] = [
         type: 'p',
         text: 'The bell icon in the top navigation shows in-app notifications for new leads/bookings, signed contracts, and paid invoices. Check it regularly, especially while email delivery is limited — see Known limitations below.',
       },
-      { type: 'placeholder', label: 'Screenshot: Notification bell, top navigation' },
+      { type: 'placeholder', label: 'Screenshot: Notification bell, top navigation', src: '/guide/notification-bell.png' },
     ],
   },
   {
@@ -217,7 +217,7 @@ const ru: GuideSection[] = [
         type: 'p',
         text: 'Здесь задаются базовые тарифы по размеру жилья, плата за упаковку, часовой пояс и логотип. Эти настройки формируют цену во всех частях приложения из одного места — в предпросмотре цены при создании заказа, на публичной странице бронирования и в счетах используются одни и те же значения, поэтому обновлять их нужно только один раз.',
       },
-      { type: 'placeholder', label: 'Скриншот: Настройки → вкладка Company' },
+      { type: 'placeholder', label: 'Скриншот: Настройки → вкладка Company', src: '/guide/settings-company.png' },
       {
         type: 'subheading',
         text: 'Team и Crews — прочитайте внимательно, это путало тестировщиков ранее',
@@ -229,8 +229,8 @@ const ru: GuideSection[] = [
           'Вкладка Team = место, где вы приглашаете реальные логины пользователей, включая логины членов бригады. При приглашении выберите роль "Crew member" и укажите, к какому профилю Crew (из вкладки Crews) привязан этот логин.',
         ],
       },
-      { type: 'placeholder', label: 'Скриншот: Настройки → вкладка Team, форма приглашения' },
-      { type: 'placeholder', label: 'Скриншот: Настройки → вкладка Crews' },
+      { type: 'placeholder', label: 'Скриншот: Настройки → вкладка Team, форма приглашения', src: '/guide/settings-team-invite.png' },
+      { type: 'placeholder', label: 'Скриншот: Настройки → вкладка Crews', src: '/guide/settings-crews.png' },
       {
         type: 'subheading',
         text: 'Вкладка Booking (Бронирование)',
@@ -243,7 +243,7 @@ const ru: GuideSection[] = [
         type: 'p',
         text: 'Важно: календарь бронирования показывает свободные даты только если добавлена хотя бы одна бригада (Настройки → Crews). Добавьте бригаду перед тем, как делиться этой ссылкой с реальными клиентами — иначе календарь будет выглядеть пустым.',
       },
-      { type: 'placeholder', label: 'Скриншот: Настройки → вкладка Booking' },
+      { type: 'placeholder', label: 'Скриншот: Настройки → вкладка Booking', src: '/guide/settings-booking.png' },
     ],
   },
   {
@@ -258,7 +258,7 @@ const ru: GuideSection[] = [
         type: 'p',
         text: 'Конвертируйте лид в заказ (Order), когда готовы взяться за работу. Обратите внимание: заказы, созданные таким образом (или напрямую через публичную страницу бронирования), изначально создаются без назначенной бригады — перейдите в панель деталей заказа и назначьте бригаду до дня переезда.',
       },
-      { type: 'placeholder', label: 'Скриншот: вкладка Leads с новым лидом' },
+      { type: 'placeholder', label: 'Скриншот: вкладка Leads с новым лидом', src: '/guide/leads-new-lead.png' },
     ],
   },
   {
@@ -269,7 +269,7 @@ const ru: GuideSection[] = [
         type: 'p',
         text: 'Откройте панель деталей заказа, найдите поле Crew, выберите бригаду и нажмите Save. Этот шаг необходим, чтобы член бригады увидел заказ в своём мобильном приложении — заказ без назначенной бригады никому не отображается.',
       },
-      { type: 'placeholder', label: 'Скриншот: панель деталей заказа, поле Crew' },
+      { type: 'placeholder', label: 'Скриншот: панель деталей заказа, поле Crew', src: '/guide/order-crew-field.png' },
     ],
   },
   {
@@ -284,7 +284,7 @@ const ru: GuideSection[] = [
           'Известная особенность: иногда после обновления страницы PWA может появиться пустой белый экран. В этом случае просто войдите в систему снова — данные не теряются.',
         ],
       },
-      { type: 'placeholder', label: 'Скриншот: мобильное PWA бригады, экран заказа' },
+      { type: 'placeholder', label: 'Скриншот: мобильное PWA бригады, экран заказа', src: '/guide/crew-pwa-job-view.png' },
     ],
   },
   {
@@ -299,7 +299,7 @@ const ru: GuideSection[] = [
           'После подписания клиентом панель показывает дату подписания и ссылку для просмотра или скачивания подписанного PDF.',
         ],
       },
-      { type: 'placeholder', label: 'Скриншот: панель деталей заказа, раздел Contract' },
+      { type: 'placeholder', label: 'Скриншот: панель деталей заказа, раздел Contract', src: '/guide/order-contract-section.png' },
     ],
   },
   {
@@ -314,7 +314,7 @@ const ru: GuideSection[] = [
           'После появления ссылки скопируйте её (если письмо не приходит) и отправьте клиенту. Оплата картой доступна по ссылке — в тестовом режиме используйте карту 4242 4242 4242 4242, любую будущую дату истечения и любой CVC.',
         ],
       },
-      { type: 'placeholder', label: 'Скриншот: детали счёта, Send to client / Copy link' },
+      { type: 'placeholder', label: 'Скриншот: детали счёта, Send to client / Copy link', src: '/guide/invoice-send-share.png' },
     ],
   },
   {
@@ -325,7 +325,7 @@ const ru: GuideSection[] = [
         type: 'p',
         text: 'Значок колокольчика в верхней навигации показывает внутренние уведомления о новых лидах/бронированиях, подписанных договорах и оплаченных счетах. Проверяйте его регулярно, особенно пока доставка email ограничена — см. раздел "Известные ограничения" ниже.',
       },
-      { type: 'placeholder', label: 'Скриншот: значок уведомлений, верхняя навигация' },
+      { type: 'placeholder', label: 'Скриншот: значок уведомлений, верхняя навигация', src: '/guide/notification-bell.png' },
     ],
   },
   {

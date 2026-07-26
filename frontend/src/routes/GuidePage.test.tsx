@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import GuidePage from './GuidePage'
@@ -48,9 +48,19 @@ describe('GuidePage', () => {
     })
   })
 
-  it('renders labeled screenshot placeholders instead of broken images', () => {
+  it('renders a real screenshot image for a placeholder with a configured src', () => {
     renderGuide()
+    const img = screen.getByRole('img', { name: 'Screenshot: Settings → Company tab' })
+    expect(img).toHaveAttribute('src', '/guide/settings-company.png')
+  })
+
+  it('falls back to the labeled placeholder box — not a broken image icon — if the file 404s', () => {
+    renderGuide()
+    const img = screen.getByRole('img', { name: 'Screenshot: Settings → Company tab' })
+
+    fireEvent.error(img)
+
+    expect(screen.queryByRole('img', { name: 'Screenshot: Settings → Company tab' })).not.toBeInTheDocument()
     expect(screen.getByText('Screenshot: Settings → Company tab')).toBeInTheDocument()
-    expect(screen.queryByRole('img')).not.toBeInTheDocument()
   })
 })
