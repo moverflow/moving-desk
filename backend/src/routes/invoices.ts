@@ -59,9 +59,12 @@ invoicesRouter.post('/', authMiddleware, async (c) => {
     return c.json({ error: 'Validation failed', details: result.error.issues }, 400)
   }
 
-  const invoice = await generateInvoice(c.get('tenantId'), result.data.orderId)
-  if (!invoice) return c.json({ error: 'Order not found' }, 404)
-  return c.json({ invoice }, 201)
+  const generated = await generateInvoice(c.get('tenantId'), result.data.orderId)
+  if (!generated.ok) {
+    if (generated.reason === 'not_found') return c.json({ error: 'Order not found' }, 404)
+    return c.json({ error: 'This order has no price set yet. Set a price before invoicing it.' }, 422)
+  }
+  return c.json({ invoice: generated.invoice }, 201)
 })
 
 invoicesRouter.get('/:id', authMiddleware, async (c) => {

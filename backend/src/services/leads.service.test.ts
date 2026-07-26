@@ -120,10 +120,15 @@ describe('createLead — in-app notification', () => {
   })
 })
 
+function tenantSettingsRow(baseRates: Record<string, number>): Record<string, unknown> {
+  return { settings: { baseRates, packingFee: 120 } }
+}
+
 describe('convertLeadToOrder', () => {
   it('AC5/AC6/AC8 — creates a client + order from the lead and marks it booked', async () => {
     selectQueue.push([lead()]) // getLead
     selectQueue.push([]) // client lookup — none found
+    selectQueue.push([tenantSettingsRow({ '3br': 620 })]) // getTenantPricing
     insertReturnQueue.push([{ id: 'client-1' }]) // client insert
     insertReturnQueue.push([{ id: 'order-1' }]) // order insert
 
@@ -149,9 +154,24 @@ describe('convertLeadToOrder', () => {
     expect(updateSets[0]).toMatchObject({ status: 'booked', converted_order_id: 'order-1' })
   })
 
+  // The $0-order bug this task fixes: a lead with a captured home size must
+  // price the resulting order from the tenant's own rates, not leave it at
+  // the schema default of 0.
+  it('prices the order from tenant.baseRates for the lead\'s home size — not $0', async () => {
+    selectQueue.push([lead({ home_size: 'studio' })]) // getLead
+    selectQueue.push([{ id: 'client-existing', email: 'rick@example.com' }]) // client found
+    selectQueue.push([tenantSettingsRow({ studio: 350, '3br': 620 })]) // getTenantPricing — non-default rate
+    insertReturnQueue.push([{ id: 'order-priced' }])
+
+    await convertLeadToOrder(TENANT_A, USER_A, 'lead-1')
+
+    expect(insertValues[0]).toMatchObject({ home_size: 'studio', base_price: 350, total_price: 350 })
+  })
+
   it('reuses an existing client matched by phone (no new client insert)', async () => {
     selectQueue.push([lead()]) // getLead
     selectQueue.push([{ id: 'client-existing', email: 'rick@example.com' }]) // client found
+    selectQueue.push([tenantSettingsRow({ '3br': 620 })]) // getTenantPricing
     insertReturnQueue.push([{ id: 'order-2' }]) // order insert (first insert call)
 
     const result = await convertLeadToOrder(TENANT_A, USER_A, 'lead-1')
@@ -161,14 +181,32 @@ describe('convertLeadToOrder', () => {
     expect(insertValues[0]).toMatchObject({ client_id: 'client-existing' })
   })
 
-  it('defaults missing move details when the lead is sparse', async () => {
+  // Leads never capture packing intent (no `packing` column on leads at all),
+  // so the packing fee must never be added at conversion.
+  it('never adds a packing fee — leads have no packing intent to price it from', async () => {
+    selectQueue.push([lead({ home_size: '2br' })])
+    selectQueue.push([{ id: 'client-existing', email: 'rick@example.com' }])
+    selectQueue.push([tenantSettingsRow({ '2br': 480 })])
+    insertReturnQueue.push([{ id: 'order-nopacking' }])
+
+    await convertLeadToOrder(TENANT_A, USER_A, 'lead-1')
+
+    expect(insertValues[0]).toMatchObject({ base_price: 480, total_price: 480 })
+  })
+
+  it('defaults missing move details when the lead is sparse, and leaves price deliberately at 0 — not a $0 order from a guessed home size', async () => {
     selectQueue.push([lead({ from_address: null, to_address: null, move_date: null, home_size: null })])
     selectQueue.push([{ id: 'client-1', email: 'rick@example.com' }])
+    // No getTenantPricing select queued — a missing home size must never even
+    // attempt to price the order, let alone from a guessed size.
     insertReturnQueue.push([{ id: 'order-3' }])
 
     await convertLeadToOrder(TENANT_A, USER_A, 'lead-1')
     const today = new Date().toISOString().split('T')[0]
-    expect(insertValues[0]).toMatchObject({ from_address: '', to_address: '', move_date: today, home_size: '2br' })
+    expect(insertValues[0]).toMatchObject({
+      from_address: '', to_address: '', move_date: today, home_size: '2br',
+      base_price: 0, total_price: 0,
+    })
   })
 
   it('returns null when the lead is not found', async () => {

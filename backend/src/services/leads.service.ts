@@ -2,6 +2,7 @@ import { and, desc, eq, ilike, or } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { clients, leads, orders, tenants } from '../db/schema.js'
 import { createNotification } from './notifications.service.js'
+import { getTenantPricing } from './settings.service.js'
 import type { HomeSize, LeadSource, LeadStatus } from '../types/index.js'
 
 const LEAD_SOURCE_LABELS: Record<LeadSource, string> = {
@@ -176,6 +177,19 @@ export interface ConvertResult {
   orderId: string
 }
 
+// Prices the order from the lead's own captured home size via the same
+// getTenantPricing() source of truth every other order-creation path uses.
+// A lead with no home size gets no guessed price — 0 is deliberate here (not
+// the schema default landing accidentally), and generateInvoice() refuses to
+// invoice a $0 order, so a dispatcher can't silently bill a customer nothing.
+// Leads never capture packing intent, so the packing fee never applies here.
+async function priceFromLead(tenantId: string, homeSize: string | null): Promise<{ basePrice: number; totalPrice: number }> {
+  if (!homeSize) return { basePrice: 0, totalPrice: 0 }
+  const { baseRates } = await getTenantPricing(tenantId)
+  const basePrice = baseRates[homeSize as HomeSize] ?? 0
+  return { basePrice, totalPrice: basePrice }
+}
+
 // Converts a lead into a real order: finds/creates the client, pre-fills the
 // order with whatever the lead has, and marks the lead booked with a back-link.
 export async function convertLeadToOrder(
@@ -187,6 +201,7 @@ export async function convertLeadToOrder(
   if (!lead) return null
 
   const clientId = await findOrCreateClientForLead(tenantId, lead.name, lead.phone, lead.email)
+  const { basePrice, totalPrice } = await priceFromLead(tenantId, lead.home_size)
 
   const todayDate = new Date().toISOString().split('T')[0]
   const [order] = await db
@@ -199,8 +214,12 @@ export async function convertLeadToOrder(
       from_address: lead.from_address ?? '',
       to_address: lead.to_address ?? '',
       move_date: lead.move_date ?? todayDate,
+      // Home size still defaults for the DB's NOT NULL constraint — but that
+      // default is never used to compute a price (see priceFromLead above).
       home_size: (lead.home_size ?? '2br') as HomeSize,
       notes: lead.notes,
+      base_price: basePrice,
+      total_price: totalPrice,
     })
     .returning({ id: orders.id })
 

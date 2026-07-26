@@ -85,8 +85,8 @@ describe.skipIf(!dbAvailable)('generateInvoice concurrency (real Postgres)', () 
 
     const results = await Promise.all(orderIds.map((orderId) => generateInvoice(TENANT_A, orderId)))
 
-    expect(results.every((r) => r !== null)).toBe(true)
-    const numbers = results.map((r) => r!.number)
+    expect(results.every((r) => r.ok)).toBe(true)
+    const numbers = results.map((r) => (r.ok ? r.invoice.number : null))
     expect(new Set(numbers).size).toBe(numbers.length)
 
     const rows = await db.select().from(invoices).where(eq(invoices.tenant_id, TENANT_A))
@@ -116,10 +116,10 @@ describe.skipIf(!dbAvailable)('generateInvoice concurrency (real Postgres)', () 
       .returning()
     await db.insert(invoices).values({ tenant_id: TENANT_A, order_id: otherOrder.id, number: 'INV-1001', status: 'draft' })
 
-    const invoice = await generateInvoice(TENANT_A, orderId)
+    const result = await generateInvoice(TENANT_A, orderId)
 
-    expect(invoice).not.toBeNull()
-    expect(invoice!.number).not.toBe('INV-1001')
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.invoice.number).not.toBe('INV-1001')
   })
 
   it('S6 — numbers increment sequentially per tenant across repeated calls', async () => {
@@ -129,8 +129,8 @@ describe.skipIf(!dbAvailable)('generateInvoice concurrency (real Postgres)', () 
     const second = await generateInvoice(TENANT_A, orderIds[1])
     const third = await generateInvoice(TENANT_A, orderIds[2])
 
-    expect(first!.number).toBe('INV-1001')
-    expect(second!.number).toBe('INV-1002')
-    expect(third!.number).toBe('INV-1003')
+    expect(first.ok && first.invoice.number).toBe('INV-1001')
+    expect(second.ok && second.invoice.number).toBe('INV-1002')
+    expect(third.ok && third.invoice.number).toBe('INV-1003')
   })
 })
