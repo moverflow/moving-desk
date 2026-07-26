@@ -1392,3 +1392,48 @@ one-field change vs. new UI/flow.
   file into that folder now requires no further code changes.
 
 ---
+
+## audit/27-guide-multi-image-sections — DONE (2026-07-26)
+
+- Migrated the placeholder content model from single `src?: string` to
+  `images?: string[]` on `GuideBlock` — fully replaced rather than kept
+  side-by-side, since this is internal content data with no external
+  consumers to stay backward-compatible for. All 20 placeholder entries
+  (10 EN + 10 RU) converted; single-screenshot sections became one-element
+  arrays, four sections (settings/Booking, crew-pwa, contracts, invoices)
+  became multi-element arrays using the real files the task's list named
+  as the source of truth — several didn't match the filenames guessed in
+  the prior task (`settings-team.png` not `-team-invite`, `settings-crew.png`
+  singular not `-crews`, the whole invoice group renamed), so this task
+  corrected those in the same pass rather than leaving dead paths.
+  Step order within each group: booking tab → public booking page → booking
+  received (settings); login → job view (crew-pwa); order's contract
+  section → client-facing signing page → signed confirmation (contracts);
+  invoice → sent/copy-link → payment page → payment success (invoices, the
+  exact order the task specified). Same `images` array reused for both EN
+  and RU entries of a section — the screenshots are of the (English-only)
+  app UI regardless of guide language.
+- `GuidePlaceholder.tsx` rewritten around a shared `GuideImage` sub-component
+  that tracks its own load-failure state independently, so one broken file
+  in a multi-image group only replaces that one thumbnail with the fallback
+  box, not the whole gallery. Single-image sections render exactly as
+  before (full-width, no numbering — unchanged visually from the prior
+  task). Multi-image sections render as a horizontal-scroll strip of
+  fixed-width (`w-56`) thumbnails with a small numbered badge per image —
+  chosen over a shrinking grid so images stay full-detail-sized on any
+  viewport ("not squished tiny") and the horizontal layout itself makes
+  step order self-evident, reusing the same horizontal-scroll-on-mobile
+  pattern `GuideToc.tsx` already established. No manual captions needed —
+  adding an image is exactly "push a filename onto the array," per the
+  task's point 5, with the step number auto-derived from array position.
+- Tests: extended `GuidePage.test.tsx` (+2, 7 total in that file) — one
+  confirming all 4 invoice-flow images render with the correct `src` in
+  the exact specified order via their auto-generated "step N of 4" alt
+  text, one confirming an error on the first image of that group falls
+  back to just that one image's labeled box while the second image's
+  `<img>` is untouched. The two single-image tests from the prior task
+  needed no changes — the Company-tab placeholder is still a one-element
+  array, identical rendering path. Frontend: 255 passed (was 253).
+  Typecheck, lint, and production build all clean.
+
+---
