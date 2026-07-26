@@ -21,8 +21,11 @@ export type NotificationType =
   | 'invoice_refunded'
   | 'invoice_disputed'
   | 'move_reminder'
+  | 'feedback_new'
 
-export type NotificationRelatedType = 'order' | 'invoice' | 'lead'
+export type NotificationRelatedType = 'order' | 'invoice' | 'lead' | 'feedback'
+
+export type FeedbackSeverity = 'bug' | 'suggestion' | 'other'
 
 export type { TenantSettings } from '../db/schema.js'
 

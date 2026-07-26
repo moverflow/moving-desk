@@ -3,6 +3,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { CalendarDays, Kanban, LayoutDashboard, Plus, Receipt, Users, Settings as SettingsIcon, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth.store'
+import FeedbackButton from '@/components/shared/FeedbackButton'
 import MobileNavDrawer, { type MobileNavItem } from '@/components/shared/MobileNavDrawer'
 import NotificationBell from '@/components/shared/NotificationBell'
 import ProductTour from '@/components/shared/ProductTour'
@@ -82,6 +83,7 @@ export default function AppShell(): JSX.Element {
         <Outlet />
       </main>
       {isOwner && <ProductTour />}
+      <FeedbackButton />
     </div>
   )
 }
