@@ -5,12 +5,13 @@ import { clearAuthCookie, setAuthCookie } from '../lib/authCookie.js'
 import { sendWelcomeEmail } from '../lib/email.js'
 import { signToken } from '../lib/jwt.js'
 import { authMiddleware } from '../middleware/auth.js'
-import { rateLimit } from '../middleware/rateLimit.js'
+import { getClientIp, rateLimit } from '../middleware/rateLimit.js'
 import {
   findUserByEmail,
   generateUniqueSlug,
   getMeData,
   loginUser,
+  recordLogin,
   registerTenantAndUser,
 } from '../services/auth.service.js'
 import type { AppVariables, Plan, UserRole } from '../types/index.js'
@@ -140,6 +141,10 @@ auth.post('/login', loginRateLimit, async (c) => {
     plan: (row.plan ?? 'trial') as Plan,
     crewId: row.crew_id ?? undefined,
   })
+
+  // Only reached once every gate above has passed — a suspended account never
+  // gets here, so it never counts as a login even though the password matched.
+  await recordLogin(row.id, row.tenant_id, getClientIp(c))
 
   setAuthCookie(c, jwt)
 

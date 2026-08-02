@@ -34,12 +34,14 @@ const countUsersInTenantMock = vi.fn()
 const userExistsByEmailMock = vi.fn()
 const crewExistsForTenantMock = vi.fn()
 const createInviteMock = vi.fn()
+const getLoginHistoryMock = vi.fn()
 
 vi.mock('../services/users.service.js', () => ({
   countUsersInTenant: (...a: unknown[]) => countUsersInTenantMock(...a),
   createInvite: (...a: unknown[]) => createInviteMock(...a),
   crewExistsForTenant: (...a: unknown[]) => crewExistsForTenantMock(...a),
   findInviteByToken: vi.fn(),
+  getLoginHistory: (...a: unknown[]) => getLoginHistoryMock(...a),
   joinWithInvite: vi.fn(),
   listTeam: vi.fn(),
   removeUser: vi.fn(),
@@ -53,10 +55,17 @@ const { setAuthContext } = await import('../test/authContext.js')
 const app = new Hono<{ Variables: AppVariables }>().route('/users', usersRouter)
 
 const TENANT_A = '11111111-1111-1111-1111-111111111111'
+const USER_A = '22222222-2222-4222-8222-222222222222'
 
 async function authCookie(plan: Plan = 'basic'): Promise<string> {
   setAuthContext({ userId: 'owner-1', tenantId: TENANT_A, role: 'owner', plan, crewId: null })
   const token = await signToken({ sub: 'owner-1', tenantId: TENANT_A, role: 'owner', plan })
+  return `token=${token}`
+}
+
+async function dispatcherCookie(): Promise<string> {
+  setAuthContext({ userId: 'dispatcher-1', tenantId: TENANT_A, role: 'dispatcher', plan: 'basic', crewId: null })
+  const token = await signToken({ sub: 'dispatcher-1', tenantId: TENANT_A, role: 'dispatcher', plan: 'basic' })
   return `token=${token}`
 }
 
@@ -66,6 +75,7 @@ beforeEach(() => {
   userExistsByEmailMock.mockReset().mockResolvedValue(false)
   crewExistsForTenantMock.mockReset().mockResolvedValue(true)
   createInviteMock.mockReset()
+  getLoginHistoryMock.mockReset()
 })
 
 describe('POST /users/invite', () => {
@@ -136,5 +146,47 @@ describe('POST /users/invite', () => {
     })
     expect(res.status).toBe(401)
     expect(createInviteMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('GET /users/:id/login-history', () => {
+  it('AC — returns the tenant-scoped login history for the user', async () => {
+    getLoginHistoryMock.mockResolvedValue([
+      { id: 'event-1', ipAddress: '203.0.113.5', createdAt: '2026-08-01T10:00:00.000Z' },
+    ])
+
+    const res = await app.request(`/users/${USER_A}/login-history`, {
+      headers: { Cookie: await authCookie() },
+    })
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({
+      events: [{ id: 'event-1', ipAddress: '203.0.113.5', createdAt: '2026-08-01T10:00:00.000Z' }],
+    })
+    expect(getLoginHistoryMock).toHaveBeenCalledWith(TENANT_A, USER_A)
+  })
+
+  it('returns 404 for a malformed id instead of a database error', async () => {
+    const res = await app.request('/users/not-a-uuid/login-history', {
+      headers: { Cookie: await authCookie() },
+    })
+
+    expect(res.status).toBe(404)
+    expect(getLoginHistoryMock).not.toHaveBeenCalled()
+  })
+
+  it('requires auth', async () => {
+    const res = await app.request(`/users/${USER_A}/login-history`)
+    expect(res.status).toBe(401)
+    expect(getLoginHistoryMock).not.toHaveBeenCalled()
+  })
+
+  it('is owner-only — a dispatcher gets 403', async () => {
+    const res = await app.request(`/users/${USER_A}/login-history`, {
+      headers: { Cookie: await dispatcherCookie() },
+    })
+
+    expect(res.status).toBe(403)
+    expect(getLoginHistoryMock).not.toHaveBeenCalled()
   })
 })

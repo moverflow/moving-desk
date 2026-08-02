@@ -1,6 +1,6 @@
-import { and, eq, gt, sql } from 'drizzle-orm'
+import { and, desc, eq, gt, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { crews, invites, tenants, users } from '../db/schema.js'
+import { crews, invites, loginEvents, tenants, users } from '../db/schema.js'
 import { signToken } from '../lib/jwt.js'
 import type { Plan, UserRole } from '../types/index.js'
 
@@ -121,6 +121,21 @@ export async function listTeam(tenantId: string) {
     })
     .from(users)
     .where(eq(users.tenant_id, tenantId))
+}
+
+const LOGIN_HISTORY_LIMIT = 20
+
+export async function getLoginHistory(tenantId: string, userId: string) {
+  return db
+    .select({
+      id: loginEvents.id,
+      ipAddress: loginEvents.ip_address,
+      createdAt: loginEvents.created_at,
+    })
+    .from(loginEvents)
+    .where(and(eq(loginEvents.user_id, userId), eq(loginEvents.tenant_id, tenantId)))
+    .orderBy(desc(loginEvents.created_at))
+    .limit(LOGIN_HISTORY_LIMIT)
 }
 
 export async function removeUser(
