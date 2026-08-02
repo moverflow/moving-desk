@@ -1476,3 +1476,50 @@ one-field change vs. new UI/flow.
   Typecheck, lint, and production build all clean.
 
 ---
+
+## audit/28-login-tracking — DONE (2026-08-02)
+
+- Schema: `users.last_login_at` (nullable timestamp) + new `login_events`
+  table (`id, user_id, tenant_id, ip_address, created_at`, both FKs
+  NOT NULL, indexed on `(user_id, tenant_id, created_at)` for the history
+  read). Migration `0014_watery_energizer.sql`, generated and applied to
+  the dev DB.
+- `recordLogin(userId, tenantId, ipAddress)` in `auth.service.ts` does both
+  writes (the `last_login_at` update and the `login_events` insert) and
+  follows the exact swallow-and-log contract `notifications.service.ts`'s
+  `createNotification` already established — a failure here must never
+  turn a successful login into an error response, so every failure is
+  logged and the promise always resolves.
+- Wired into `routes/auth.ts`'s `POST /auth/login` — deliberately placed
+  *after* the trial/subscription-active gate, not right after
+  `bcrypt.compare`. The task's own wording ("successful authentication")
+  is ambiguous between "password matched" and "user is now actually
+  logged in"; a suspended account with the correct password gets a 403
+  and no session at all, so counting that as a "login" would make
+  `login_events` misleading. Confirmed via `getClientIp()` (reused as
+  named in the task) for the IP.
+- `GET /users/:id/login-history` — owner-only, tenant-scoped, added next
+  to the existing `GET /users` team-list route. Malformed `:id` returns
+  404 rather than reaching Postgres (same pattern as
+  `notifications.ts`'s `/:id/read`). `getLoginHistory` in
+  `users.service.ts` filters on `user_id AND tenant_id` together, so a
+  valid id belonging to another tenant returns an empty list rather than
+  a 404 or another tenant's data — consistent with how `listTeam`-style
+  endpoints behave elsewhere in this file, not given a distinct
+  not-found path since the task said "or similar" on the exact shape.
+- Tests: `auth.service.test.ts` (+4) — both writes happen with the right
+  values, and each one's failure is swallowed and logged independently
+  (extended the file's existing hand-rolled db fake with an insert/update
+  `failures` toggle rather than writing a second one). New
+  `routes/auth.test.ts` (+4, first route-level test this login endpoint
+  has ever had) — records on success with the caller's ip, and does NOT
+  record on a wrong password, an unknown email, or a suspended account
+  despite the correct password (the exact three "successful auth but not
+  a login" / "not auth at all" cases the placement decision above hinges
+  on). `users.test.ts` (+4) — returns history scoped to `(tenantId,
+  userId)`, 404 on a malformed id, 401 with no auth, 403 for a
+  dispatcher. Backend: 376 passed (was 364). Typecheck and lint clean.
+- Out of scope, untouched per the task: no UI for the history endpoint;
+  failed-login attempts are not recorded anywhere, by design.
+
+---

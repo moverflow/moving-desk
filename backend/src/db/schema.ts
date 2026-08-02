@@ -79,6 +79,9 @@ export const users = pgTable('users', {
   name: varchar('name', { length: 255 }).notNull(),
   created_at: timestamp('created_at').defaultNow(),
 
+  // Updated on every successful login — see login_events below for full history.
+  last_login_at: timestamp('last_login_at'),
+
   // Soft delete — не удаляем пользователей физически
   // Если owner удалил диспетчера — данные сохраняются
   // При select всегда фильтруем: .where(isNull(users.deleted_at))
@@ -453,6 +456,25 @@ export const feedback = pgTable('feedback', {
   tenantCreatedIdx: index('feedback_tenant_created_idx').on(table.tenant_id, table.created_at),
 }))
 
+// ─── LOGIN EVENTS ─────────────────────────────────────────────────────────────
+// Full login history, one row per successful login (failed attempts are not
+// recorded — see routes/auth.ts). users.last_login_at is the cheap "when did
+// they last log in" read; this table is for a fuller history if a UI ever
+// wants it.
+export const loginEvents = pgTable('login_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  user_id: uuid('user_id').notNull().references(() => users.id),
+  tenant_id: uuid('tenant_id').notNull().references(() => tenants.id),
+  ip_address: varchar('ip_address', { length: 64 }),
+
+  created_at: timestamp('created_at').defaultNow(),
+},
+(table) => ({
+  // GET /users/:id/login-history: WHERE user_id = ? AND tenant_id = ? ORDER BY created_at DESC
+  userTenantCreatedIdx: index('login_events_user_tenant_created_idx')
+    .on(table.user_id, table.tenant_id, table.created_at),
+}))
+
 // ─── STRIPE EVENTS ────────────────────────────────────────────────────────────
 // Idempotency + ordering ledger for Stripe webhooks. `id` is Stripe's own event id
 // (globally unique), so a row existing IS the idempotency check. `customer_id` +
@@ -512,6 +534,9 @@ export type NewNotification = typeof notifications.$inferInsert
 
 export type Feedback = typeof feedback.$inferSelect
 export type NewFeedback = typeof feedback.$inferInsert
+
+export type LoginEvent = typeof loginEvents.$inferSelect
+export type NewLoginEvent = typeof loginEvents.$inferInsert
 
 export type StripeEvent = typeof stripeEvents.$inferSelect
 export type NewStripeEvent = typeof stripeEvents.$inferInsert

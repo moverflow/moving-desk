@@ -1,6 +1,6 @@
 import { and, eq, isNull } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { crews, subscriptions, tenants, users } from '../db/schema.js'
+import { crews, loginEvents, subscriptions, tenants, users } from '../db/schema.js'
 import { signToken } from '../lib/jwt.js'
 import { logger } from '../lib/logger.js'
 import { stripe } from '../lib/stripe.js'
@@ -28,6 +28,19 @@ export async function loginUser(email: string) {
     .where(eq(users.email, email))
     .limit(1)
   return rows[0] ?? null
+}
+
+// A side effect of a successful login, not part of the login itself — a
+// failure here must never turn a valid login into an error response, so
+// every failure is logged and swallowed, same contract as
+// notifications.service.ts's createNotification.
+export async function recordLogin(userId: string, tenantId: string, ipAddress: string): Promise<void> {
+  try {
+    await db.update(users).set({ last_login_at: new Date() }).where(eq(users.id, userId))
+    await db.insert(loginEvents).values({ user_id: userId, tenant_id: tenantId, ip_address: ipAddress })
+  } catch (err) {
+    logger.error({ err, userId, tenantId }, 'Failed to record login')
+  }
 }
 
 export interface AuthContext {

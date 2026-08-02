@@ -10,6 +10,7 @@ import {
   createInvite,
   crewExistsForTenant,
   findInviteByToken,
+  getLoginHistory,
   joinWithInvite,
   listTeam,
   removeUser,
@@ -139,6 +140,16 @@ usersRouter.post('/join', async (c) => {
 usersRouter.get('/', authMiddleware, requireOwner, async (c) => {
   const team = await listTeam(c.get('tenantId'))
   return c.json({ users: team })
+})
+
+usersRouter.get('/:id/login-history', authMiddleware, requireOwner, async (c) => {
+  // A malformed uuid would otherwise reach Postgres and surface as a 500 —
+  // same handling as GET /notifications/:id/read.
+  const id = z.string().uuid().safeParse(c.req.param('id'))
+  if (!id.success) return c.json({ error: 'User not found' }, 404)
+
+  const events = await getLoginHistory(c.get('tenantId'), id.data)
+  return c.json({ events })
 })
 
 usersRouter.delete('/:id', authMiddleware, requireOwner, async (c) => {
