@@ -34,6 +34,17 @@ const schema = z.object({
   // Error tracking. Unset means Sentry stays disabled and the app runs
   // normally — deliberately not a hard startup failure like the R2 config.
   SENTRY_DSN: z.string().default(''),
+  // One shared bot for every tenant, from @BotFather. Unset means the whole
+  // Telegram integration is off: no webhook route, no outbound messages, and
+  // Settings hides the section. Same optional-integration shape as SENTRY_DSN.
+  TELEGRAM_BOT_TOKEN: z.string().default(''),
+  // Bot's @handle without the '@'. Only used to build the t.me deep link shown
+  // in Settings — the token alone cannot be turned into a username offline.
+  TELEGRAM_BOT_USERNAME: z.string().default(''),
+  // Sent to Telegram with setWebhook and echoed back on every update as
+  // X-Telegram-Bot-Api-Secret-Token. Without it the webhook URL is the only
+  // thing standing between a stranger and forged updates.
+  TELEGRAM_WEBHOOK_SECRET: z.string().default(''),
 })
 
 export const env = schema.parse(process.env)

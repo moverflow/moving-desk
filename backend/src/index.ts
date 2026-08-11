@@ -7,6 +7,7 @@ import { env } from './lib/env.js'
 import { logger } from './lib/logger.js'
 import { assertStorageConfigured } from './lib/r2.js'
 import { assertStripeConfigured } from './lib/stripe.js'
+import { assertTelegramConfigured, registerTelegramWebhook } from './lib/telegram.js'
 
 initSentry()
 installProcessErrorHandlers()
@@ -14,6 +15,7 @@ installProcessErrorHandlers()
 try {
   assertStorageConfigured()
   assertStripeConfigured()
+  assertTelegramConfigured()
 } catch (err) {
   logger.error(err instanceof Error ? err.message : err)
   process.exit(1)
@@ -23,4 +25,7 @@ const port = env.PORT
 
 serve({ fetch: app.fetch, port }, () => {
   logger.info(`Server running on port ${port}`)
+  // Points Telegram at this deployment. Not awaited: the server is already
+  // accepting requests, and a Telegram outage must not delay or block startup.
+  void registerTelegramWebhook()
 })

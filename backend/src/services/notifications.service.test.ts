@@ -73,6 +73,11 @@ vi.mock('../lib/logger.js', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), error: (...a: unknown[]) => loggerErrorMock(...a), warn: vi.fn() },
 }))
 
+const dispatchTelegramMock = vi.fn()
+vi.mock('./telegram-notify.service.js', () => ({
+  dispatchTelegramNotification: (...a: unknown[]) => dispatchTelegramMock(...a),
+}))
+
 const {
   createNotification,
   createNotificationOnce,
@@ -94,6 +99,8 @@ beforeEach(() => {
   failures.insert = false
   failures.select = false
   loggerErrorMock.mockReset()
+  dispatchTelegramMock.mockReset()
+  dispatchTelegramMock.mockResolvedValue(undefined)
 })
 
 describe('createNotification', () => {
@@ -130,6 +137,44 @@ describe('createNotification', () => {
       createNotification({ tenantId: TENANT_A, type: 'lead_new', title: 'New lead: Rick' }),
     ).resolves.toBeUndefined()
     expect(loggerErrorMock).toHaveBeenCalled()
+  })
+
+  // Every trigger point (new lead, signed contract, paid invoice) reaches
+  // Telegram through this one hook, so they cannot drift apart.
+  it('mirrors the notification to Telegram after the row is written', async () => {
+    await createNotification({
+      tenantId: TENANT_A,
+      type: 'contract_signed',
+      title: 'Contract signed by Sarah Miller',
+      body: 'Move on Jun 15, 2026',
+      relatedType: 'order',
+      relatedId: 'order-1',
+    })
+
+    expect(dispatchTelegramMock).toHaveBeenCalledWith({
+      tenantId: TENANT_A,
+      type: 'contract_signed',
+      title: 'Contract signed by Sarah Miller',
+      body: 'Move on Jun 15, 2026',
+      relatedType: 'order',
+      relatedId: 'order-1',
+    })
+  })
+
+  it('does not send to Telegram when the in-app row could not be written', async () => {
+    failures.insert = true
+
+    await createNotification({ tenantId: TENANT_A, type: 'lead_new', title: 'New lead: Rick' })
+
+    expect(dispatchTelegramMock).not.toHaveBeenCalled()
+  })
+
+  it('does not fail the caller when the Telegram dispatch rejects', async () => {
+    dispatchTelegramMock.mockRejectedValue(new Error('telegram down'))
+
+    await expect(
+      createNotification({ tenantId: TENANT_A, type: 'lead_new', title: 'New lead: Rick' }),
+    ).resolves.toBeUndefined()
   })
 })
 
