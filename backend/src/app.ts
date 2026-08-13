@@ -24,6 +24,7 @@ import jobs from './routes/jobs.js'
 import leads from './routes/leads.js'
 import notifications from './routes/notifications.js'
 import orders from './routes/orders.js'
+import telegram from './routes/telegram.js'
 import users from './routes/users.js'
 
 const app = new Hono<{ Variables: AppVariables }>()
@@ -67,6 +68,7 @@ app.route('/jobs', jobs)
 app.route('/leads', leads)
 app.route('/notifications', notifications)
 app.route('/feedback', feedback)
+app.route('/telegram', telegram)
 
 const UPLOAD_MIME: Record<string, string> = {
   jpg: 'image/jpeg',

@@ -2,6 +2,7 @@ import { and, count, desc, eq, isNull } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { notifications } from '../db/schema.js'
 import { logger } from '../lib/logger.js'
+import { dispatchTelegramNotification } from './telegram-notify.service.js'
 import type { NotificationRelatedType, NotificationType } from '../types/index.js'
 
 export interface CreateNotificationInput {
@@ -29,7 +30,19 @@ export async function createNotification(input: CreateNotificationInput): Promis
     })
   } catch (err) {
     logger.error({ err, type: input.type, tenantId: input.tenantId }, 'Failed to create notification')
+    return
   }
+
+  // Telegram mirrors the bell, it does not gate it: dispatched only after the
+  // in-app row exists, not awaited, and it swallows its own failures. Hooking
+  // in here rather than at each call site is what keeps the two channels from
+  // drifting apart as trigger points are added.
+  // The .catch() is belt-and-braces: dispatch already swallows its own
+  // failures, but an unhandled rejection here would be reported as a crash by
+  // the process error handlers.
+  void dispatchTelegramNotification(input).catch((err: unknown) => {
+    logger.error({ err, type: input.type, tenantId: input.tenantId }, 'Telegram dispatch rejected')
+  })
 }
 
 // Same guarantees as createNotification, plus: skips if one already exists for

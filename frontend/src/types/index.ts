@@ -344,6 +344,20 @@ export type NotificationRelatedType = 'order' | 'invoice' | 'lead' | 'feedback'
 
 export type FeedbackSeverity = 'bug' | 'suggestion' | 'other'
 
+// `enabled` is the server's answer to "is a bot configured at all" — false hides
+// the whole section rather than offering a connect flow that cannot complete.
+export interface TelegramStatus {
+  enabled: boolean
+  connected: boolean
+  botUsername: string
+}
+
+export interface TelegramLinkCode {
+  code: string
+  deepLink: string
+  expiresAt: string
+}
+
 // Named AppNotification because `Notification` is a DOM global — an exported
 // interface with that name would shadow it wherever this module is imported.
 export interface AppNotification {

@@ -82,6 +82,11 @@ export const users = pgTable('users', {
   // Updated on every successful login — see login_events below for full history.
   last_login_at: timestamp('last_login_at'),
 
+  // Telegram chat to mirror in-app notifications to. NULL = not linked, which
+  // is the state every user starts in. Stored as text, not bigint: Telegram
+  // ids already exceed what JS numbers hold safely for some chat types.
+  telegram_chat_id: varchar('telegram_chat_id', { length: 32 }),
+
   // Soft delete — не удаляем пользователей физически
   // Если owner удалил диспетчера — данные сохраняются
   // При select всегда фильтруем: .where(isNull(users.deleted_at))
@@ -475,6 +480,28 @@ export const loginEvents = pgTable('login_events', {
     .on(table.user_id, table.tenant_id, table.created_at),
 }))
 
+// ─── TELEGRAM LINK CODES ──────────────────────────────────────────────────────
+// Short-lived, single-use codes that tie a Telegram chat to a MovingDesk user.
+// Same shape as invites, but the code travels the other way: the user reads it
+// in Settings and sends it to the bot, so it is short enough to retype and
+// expires fast. Deliberately not a uuid for that reason.
+export const telegramLinkCodes = pgTable('telegram_link_codes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenant_id: uuid('tenant_id').notNull().references(() => tenants.id),
+  user_id: uuid('user_id').notNull().references(() => users.id),
+
+  code: varchar('code', { length: 16 }).unique().notNull(),
+
+  expires_at: timestamp('expires_at').notNull(),
+  used_at: timestamp('used_at'),
+  created_at: timestamp('created_at').defaultNow(),
+},
+(table) => ({
+  // "Invalidate this user's outstanding codes before issuing a new one":
+  // WHERE user_id = ? AND used_at IS NULL
+  userIdx: index('telegram_link_codes_user_idx').on(table.user_id),
+}))
+
 // ─── STRIPE EVENTS ────────────────────────────────────────────────────────────
 // Idempotency + ordering ledger for Stripe webhooks. `id` is Stripe's own event id
 // (globally unique), so a row existing IS the idempotency check. `customer_id` +
@@ -540,3 +567,6 @@ export type NewLoginEvent = typeof loginEvents.$inferInsert
 
 export type StripeEvent = typeof stripeEvents.$inferSelect
 export type NewStripeEvent = typeof stripeEvents.$inferInsert
+
+export type TelegramLinkCode = typeof telegramLinkCodes.$inferSelect
+export type NewTelegramLinkCode = typeof telegramLinkCodes.$inferInsert

@@ -20,6 +20,9 @@ vi.mock('./lib/env', () => ({
     R2_BUCKET_NAME: 'test-bucket',
     R2_PUBLIC_URL: 'https://pub.example.com',
     SENTRY_DSN: '',
+    TELEGRAM_BOT_TOKEN: '',
+    TELEGRAM_BOT_USERNAME: '',
+    TELEGRAM_WEBHOOK_SECRET: '',
   },
 }))
 

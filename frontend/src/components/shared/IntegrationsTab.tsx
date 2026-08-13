@@ -1,6 +1,7 @@
 import type { JSX } from 'react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import TelegramSection from '@/components/shared/TelegramSection'
 import { useSettings } from '@/hooks/useSettings'
 
 const API_URL = import.meta.env.VITE_API_URL as string
@@ -59,6 +60,8 @@ export default function IntegrationsTab(): JSX.Element {
         <p className="text-xs font-medium text-gray-500">Supported fields</p>
         <p className="text-xs text-gray-500">name, phone, email, from_address, to_address, move_date, notes</p>
       </div>
+
+      <TelegramSection />
     </div>
   )
 }
