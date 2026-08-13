@@ -502,6 +502,70 @@ export const telegramLinkCodes = pgTable('telegram_link_codes', {
   userIdx: index('telegram_link_codes_user_idx').on(table.user_id),
 }))
 
+// ─── ASSISTANT CONVERSATIONS ──────────────────────────────────────────────────
+// One row per user's running chat with the Telegram Mini App assistant. There is
+// at most one active conversation per user; `summary` and `summarized_through_seq`
+// are the context-window strategy's state — everything at or below that seq has
+// been folded into the summary and is no longer replayed to the model verbatim.
+export const assistantConversations = pgTable('assistant_conversations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenant_id: uuid('tenant_id').notNull().references(() => tenants.id),
+  user_id: uuid('user_id').notNull().references(() => users.id),
+
+  summary: text('summary'),
+  summarized_through_seq: integer('summarized_through_seq').notNull().default(0),
+
+  // Monotonic per-conversation counter handed to the next message. Kept on the
+  // parent rather than derived with max(seq)+1 so two concurrent turns cannot
+  // read the same value — the UPDATE ... RETURNING takes a row lock.
+  next_seq: integer('next_seq').notNull().default(1),
+
+  last_message_at: timestamp('last_message_at').defaultNow(),
+  created_at: timestamp('created_at').defaultNow(),
+},
+(table) => ({
+  // "The current conversation for this user" — the only lookup there is.
+  tenantUserIdx: uniqueIndex('assistant_conversations_tenant_user_idx')
+    .on(table.tenant_id, table.user_id),
+}))
+
+// ─── ASSISTANT MESSAGES ───────────────────────────────────────────────────────
+// The conversation transcript, and the ONLY record of a pending write action:
+// an assistant message whose content holds a tool_use block for a mutating tool
+// is a proposal, and it is resolved exactly when a later `tool` message carries
+// a result for that tool_use_id. Deriving it from the log instead of a status
+// column means "already confirmed" cannot disagree with the transcript.
+export const assistantMessages = pgTable('assistant_messages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenant_id: uuid('tenant_id').notNull().references(() => tenants.id),
+  conversation_id: uuid('conversation_id')
+    .notNull()
+    .references(() => assistantConversations.id),
+
+  // Position in the conversation. created_at is not enough: two rows written in
+  // the same millisecond would order non-deterministically, and replaying a
+  // tool_result before its tool_use is rejected by the Messages API.
+  seq: integer('seq').notNull(),
+
+  role: varchar('role', { length: 20 })
+    .$type<'user' | 'assistant' | 'tool'>()
+    .notNull(),
+
+  // Anthropic content blocks, stored verbatim so a turn can be replayed without
+  // reconstructing tool_use/tool_result pairing from flattened text.
+  content: jsonb('content').$type<unknown[]>().notNull(),
+
+  created_at: timestamp('created_at').defaultNow(),
+},
+(table) => ({
+  // Transcript read: WHERE tenant_id = ? AND conversation_id = ? ORDER BY seq
+  conversationSeqIdx: uniqueIndex('assistant_messages_conversation_seq_idx')
+    .on(table.conversation_id, table.seq),
+
+  tenantConversationIdx: index('assistant_messages_tenant_conversation_idx')
+    .on(table.tenant_id, table.conversation_id),
+}))
+
 // ─── STRIPE EVENTS ────────────────────────────────────────────────────────────
 // Idempotency + ordering ledger for Stripe webhooks. `id` is Stripe's own event id
 // (globally unique), so a row existing IS the idempotency check. `customer_id` +
@@ -570,3 +634,9 @@ export type NewStripeEvent = typeof stripeEvents.$inferInsert
 
 export type TelegramLinkCode = typeof telegramLinkCodes.$inferSelect
 export type NewTelegramLinkCode = typeof telegramLinkCodes.$inferInsert
+
+export type AssistantConversation = typeof assistantConversations.$inferSelect
+export type NewAssistantConversation = typeof assistantConversations.$inferInsert
+
+export type AssistantMessage = typeof assistantMessages.$inferSelect
+export type NewAssistantMessage = typeof assistantMessages.$inferInsert

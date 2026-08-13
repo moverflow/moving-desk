@@ -47,6 +47,19 @@ export function telegramDeepLink(code: string): string {
   return `https://t.me/${env.TELEGRAM_BOT_USERNAME}?start=${code}`
 }
 
+// Where the Mini App lives. A route in the existing frontend, so it ships with
+// the same deploy as the rest of the app.
+export function miniAppUrl(): string {
+  return `${env.FRONTEND_URL}/assistant`
+}
+
+// Telegram only accepts an https URL for a web_app button, so a local frontend
+// cannot be registered as one. Checked here rather than at the call sites so the
+// bot's menu button and its /assistant reply agree on when it is available.
+export function isMiniAppAvailable(): boolean {
+  return isTelegramEnabled() && miniAppUrl().startsWith('https://')
+}
+
 // Fire-and-forget, exactly like the Resend sends: a Telegram outage must never
 // turn into a failed booking or a Stripe webhook retry. Never rejects.
 export function sendTelegramMessage(chatId: string, text: string): void {
@@ -58,6 +71,36 @@ export function sendTelegramMessage(chatId: string, text: string): void {
     .catch((err: unknown) => {
       logger.error({ err, chatId }, 'Failed to send Telegram message')
     })
+}
+
+// Puts "Open Assistant" in the bot's chat menu — the button beside the message
+// box, which is how a Mini App is normally launched. Registered on every boot
+// alongside the webhook so it follows the current deployment's URL. A failure
+// here costs the menu entry and nothing else; the /assistant command still works.
+export async function registerTelegramMenuButton(): Promise<void> {
+  const instance = getBot()
+  if (!instance) return
+
+  if (!isMiniAppAvailable()) {
+    logger.info(
+      { url: miniAppUrl() },
+      'Skipping Telegram menu button: Mini App needs an https FRONTEND_URL',
+    )
+    return
+  }
+
+  try {
+    await instance.api.setChatMenuButton({
+      menu_button: {
+        type: 'web_app',
+        text: 'Assistant',
+        web_app: { url: miniAppUrl() },
+      },
+    })
+    logger.info({ url: miniAppUrl() }, 'Telegram Mini App menu button registered')
+  } catch (err) {
+    logger.error({ err }, 'Failed to register Telegram menu button')
+  }
 }
 
 // Telegram delivers updates to whatever URL was last registered, so this runs

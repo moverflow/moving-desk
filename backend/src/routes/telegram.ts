@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { webhookCallback } from 'grammy'
 import { env } from '../lib/env.js'
 import { logger } from '../lib/logger.js'
-import { getBot, isTelegramEnabled } from '../lib/telegram.js'
+import { getBot, isMiniAppAvailable, isTelegramEnabled, miniAppUrl } from '../lib/telegram.js'
 import { authMiddleware, requireOwner } from '../middleware/auth.js'
 import {
   createLinkCode,
@@ -43,6 +43,22 @@ if (bot) {
   bot.command('start', async (ctx) => {
     const reply = await handleStartCommand(ctx.match, String(ctx.chat.id))
     await ctx.reply(reply, { link_preview_options: { is_disabled: true } })
+  })
+
+  // Opens the Mini App chat UI. The button is the only way in — a plain link
+  // would open the page in a browser, outside Telegram, where there is no
+  // initData to authenticate with.
+  bot.command('assistant', async (ctx) => {
+    if (!isMiniAppAvailable()) {
+      await ctx.reply('The assistant is not available on this deployment yet.')
+      return
+    }
+
+    await ctx.reply('Tap below to open the MovingDesk assistant.', {
+      reply_markup: {
+        inline_keyboard: [[{ text: '🤖 Open Assistant', web_app: { url: miniAppUrl() } }]],
+      },
+    })
   })
 
   // A thrown error inside a handler would otherwise bubble out of
