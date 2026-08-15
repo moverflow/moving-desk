@@ -8,7 +8,10 @@ import type { TelegramWebApp } from '@/lib/telegramWebApp'
 vi.mock('@/lib/telegramWebApp', () => ({
   loadTelegramWebApp: vi.fn(),
   applyTelegramTheme: vi.fn(),
+  applyTelegramViewport: vi.fn(() => releaseViewportMock),
 }))
+
+const releaseViewportMock = vi.fn()
 
 vi.mock('@/hooks/useAssistant', () => ({
   useAssistantSession: vi.fn(),
@@ -20,7 +23,7 @@ vi.mock('@/features/assistant/ChatView', () => ({
   default: ({ company }: { company: string }) => <div>chat for {company}</div>,
 }))
 
-import { applyTelegramTheme, loadTelegramWebApp } from '@/lib/telegramWebApp'
+import { applyTelegramTheme, applyTelegramViewport, loadTelegramWebApp } from '@/lib/telegramWebApp'
 import { useAssistantLink, useAssistantSession } from '@/hooks/useAssistant'
 
 const sessionMock = vi.fn()
@@ -63,7 +66,9 @@ function setup(options: SetupOptions = {}): void {
 beforeEach(() => {
   sessionMock.mockReset()
   linkMock.mockReset()
+  releaseViewportMock.mockClear()
   vi.mocked(applyTelegramTheme).mockClear()
+  vi.mocked(applyTelegramViewport).mockClear()
 })
 
 describe('MiniAppPage — bootstrap', () => {
@@ -85,6 +90,33 @@ describe('MiniAppPage — bootstrap', () => {
     await screen.findByText('chat for Acme Movers')
 
     expect(applyTelegramTheme).toHaveBeenCalled()
+  })
+
+  // The shell is sized from Telegram's reported viewport rather than 100vh, or
+  // its bottom edge ends up underneath Telegram's own chrome.
+  it('adopts the Telegram viewport, measured after expanding', async () => {
+    const bridge = webApp('user=%7B%7D&hash=abc')
+    setup({ bridge })
+    sessionMock.mockResolvedValue({ linked: true, company: 'Acme Movers', token: 't', user: {} })
+
+    render(<MiniAppPage />)
+    await screen.findByText('chat for Acme Movers')
+
+    expect(applyTelegramViewport).toHaveBeenCalledWith(bridge)
+    expect(vi.mocked(bridge.expand).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(applyTelegramViewport).mock.invocationCallOrder[0],
+    )
+  })
+
+  it('stops following the viewport once the Mini App unmounts', async () => {
+    setup()
+    sessionMock.mockResolvedValue({ linked: true, company: 'Acme Movers', token: 't', user: {} })
+
+    const { unmount } = render(<MiniAppPage />)
+    await screen.findByText('chat for Acme Movers')
+    unmount()
+
+    expect(releaseViewportMock).toHaveBeenCalled()
   })
 
   // Opened in a plain browser there is no signed initData, so there is nothing

@@ -63,7 +63,11 @@ export default function ChatView({ company }: { company: string }): JSX.Element 
         <p className="text-xs text-[var(--tg-hint)]">{company}</p>
       </header>
 
-      <div className="flex-1 space-y-3 overflow-y-auto p-3">
+      {/*
+        pb-6 rather than p-3 all round: the last bubble otherwise stops flush
+        against the composer's top border, which reads as clipped mid-message.
+      */}
+      <div className="flex-1 space-y-3 overflow-y-auto p-3 pb-6">
         {transcript.isLoading && (
           <p className="py-10 text-center text-sm text-[var(--tg-hint)]">Loading…</p>
         )}
