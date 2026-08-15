@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { useSettings, useUpdateSettings } from '@/hooks/useSettings'
+import { useTelegramStatus } from '@/hooks/useTelegram'
 
 const MAX_DESCRIPTION = 300
 
@@ -41,6 +42,43 @@ function BookingLinkControls({ bookingUrl, bookingIsLive, copied, onCopy }: Book
       {!bookingIsLive && (
         <p className="text-xs text-amber-600">Enable booking above to activate this link.</p>
       )}
+    </div>
+  )
+}
+
+interface TelegramBookingLinkProps {
+  slug: string
+  botUsername: string
+  bookingIsLive: boolean
+}
+
+// The same booking request, reached through the MovingDesk Telegram bot instead
+// of a browser. `startapp` opens the Mini App straight away, so a client taps
+// once and lands on the form.
+function TelegramBookingLink({ slug, botUsername, bookingIsLive }: TelegramBookingLinkProps): JSX.Element {
+  const [copied, setCopied] = useState(false)
+  const url = `https://t.me/${botUsername}?startapp=${slug}`
+
+  async function handleCopy(): Promise<void> {
+    await navigator.clipboard.writeText(url)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <Label>Your Telegram booking link</Label>
+      <div className="flex items-center gap-2 flex-wrap">
+        <code className="text-xs bg-gray-100 rounded px-2 py-1.5 text-gray-700 break-all flex-1 min-w-[200px]">
+          {url}
+        </code>
+        <Button type="button" variant="outline" size="sm" onClick={handleCopy} disabled={!bookingIsLive}>
+          {copied ? 'Copied!' : 'Copy link'}
+        </Button>
+      </div>
+      <p className="text-xs text-gray-500">
+        Opens the booking form inside Telegram. Clients do not need a MovingDesk account.
+      </p>
     </div>
   )
 }
@@ -86,6 +124,7 @@ function BookingDescriptionField({ value, onChange }: BookingDescriptionFieldPro
 
 export default function BookingTab(): JSX.Element {
   const { data: settings } = useSettings()
+  const { data: telegram } = useTelegramStatus()
   const { mutateAsync: save, isPending } = useUpdateSettings()
   const [enabled, setEnabled] = useState(false)
   const [description, setDescription] = useState('')
@@ -126,6 +165,14 @@ export default function BookingTab(): JSX.Element {
         copied={copied}
         onCopy={handleCopy}
       />
+
+      {telegram?.enabled && settings && (
+        <TelegramBookingLink
+          slug={settings.slug}
+          botUsername={telegram.botUsername}
+          bookingIsLive={bookingIsLive}
+        />
+      )}
 
       <BookingDescriptionField value={description} onChange={setDescription} />
 

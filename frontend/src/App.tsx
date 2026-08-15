@@ -24,6 +24,7 @@ import HowItWorksPage from '@/routes/HowItWorksPage'
 import TestGuidePage from '@/routes/TestGuidePage'
 import GuidePage from '@/routes/GuidePage'
 import MiniAppPage from '@/routes/MiniAppPage'
+import BookingMiniAppPage from '@/routes/BookingMiniAppPage'
 import { useAuthStore } from '@/store/auth.store'
 
 function DefaultRedirect(): JSX.Element {
@@ -47,6 +48,8 @@ export default function App(): JSX.Element {
       <Route path="/guide" element={<GuidePage />} />
       {/* Telegram Mini App: authenticates with Telegram initData, not the app session. */}
       <Route path="/assistant" element={<MiniAppPage />} />
+      {/* Telegram Mini App, client side: public booking, tenant from start_param. */}
+      <Route path="/book-app" element={<BookingMiniAppPage />} />
       <Route path="/crew/login" element={<CrewLoginPage />} />
       <Route element={<CrewProtectedRoute />}>
         <Route path="/crew" element={<CrewHomePage />} />

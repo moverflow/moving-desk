@@ -62,12 +62,21 @@ vi.mock('../lib/telegram.js', () => ({
   telegramDeepLink: (code: string) => `https://t.me/movingdesk_test_bot?start=${code}`,
 }))
 
+// The booking channel resolves its tenant through the public booking service, so
+// the booking_enabled gate lives in exactly one place. Mocked here to prove that
+// service is the one consulted, rather than a second lookup of its own.
+const getPublicTenantMock = vi.fn()
+vi.mock('./booking.service.js', () => ({
+  getPublicTenant: (...a: unknown[]) => getPublicTenantMock(...a),
+}))
+
 const {
   consumeLinkCode,
   createLinkCode,
   getTelegramStatus,
   handleStartCommand,
   listTenantChatIds,
+  resolveStartCommand,
   unlinkTelegram,
 } = await import('./telegram.service.js')
 
@@ -83,6 +92,7 @@ function reset(): void {
   updateWheres.length = 0
   updateSets.length = 0
   updateReturns.length = 0
+  getPublicTenantMock.mockReset()
 }
 
 beforeEach(reset)
@@ -223,6 +233,64 @@ describe('handleStartCommand', () => {
 
     const reply = await handleStartCommand('NOPE1234', '5550001')
     expect(reply).toContain('not valid or has already been used')
+  })
+})
+
+describe('resolveStartCommand', () => {
+  // AC: start_param → tenant resolution.
+  it('resolves book_<slug> to that company and offers the booking Mini App', async () => {
+    getPublicTenantMock.mockResolvedValue({ id: TENANT_A, name: 'Best Movers', slug: 'best-movers' })
+
+    const reply = await resolveStartCommand('book_best-movers', '5550001')
+
+    expect(getPublicTenantMock).toHaveBeenCalledWith('best-movers')
+    expect(reply).toEqual({
+      kind: 'booking',
+      text: expect.stringContaining('Best Movers'),
+      slug: 'best-movers',
+      companyName: 'Best Movers',
+    })
+  })
+
+  // AC: the booking_enabled gate is not bypassed by the new channel.
+  // getPublicTenant returns null both for an unknown slug and for a tenant with
+  // booking switched off, so one branch covers both.
+  it('refuses a slug the public booking service will not serve', async () => {
+    getPublicTenantMock.mockResolvedValue(null)
+
+    const reply = await resolveStartCommand('book_booking-disabled-co', '5550001')
+
+    expect(reply.kind).toBe('text')
+    expect(reply.text).toContain('not valid')
+  })
+
+  it('does not look up a tenant for an empty booking slug', async () => {
+    const reply = await resolveStartCommand('book_', '5550001')
+
+    expect(getPublicTenantMock).not.toHaveBeenCalled()
+    expect(reply.kind).toBe('text')
+  })
+
+  // The two channels share the /start payload, so the connect-code path must be
+  // untouched — a code can never carry the book_ prefix (see CODE_ALPHABET).
+  it('still links an owner account when the payload is a connect code', async () => {
+    selectQueue.push([
+      { id: CODE_ID, tenantId: TENANT_A, userId: USER_A, expiresAt: new Date(Date.now() + 60_000) },
+    ])
+    updateReturns.push([{ name: 'Dana Owner' }])
+
+    const reply = await resolveStartCommand('ABCD2345', '5550001')
+
+    expect(reply.kind).toBe('text')
+    expect(reply.text).toContain('Dana Owner')
+    expect(getPublicTenantMock).not.toHaveBeenCalled()
+  })
+
+  it('falls back to the welcome text for a bare /start', async () => {
+    const reply = await resolveStartCommand('', '5550001')
+
+    expect(reply.kind).toBe('text')
+    expect(reply.text).toContain('Settings → Integrations')
   })
 })
 

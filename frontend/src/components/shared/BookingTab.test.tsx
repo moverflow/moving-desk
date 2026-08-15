@@ -8,7 +8,12 @@ vi.mock('@/hooks/useSettings', () => ({
   useUpdateSettings: vi.fn(),
 }))
 
+vi.mock('@/hooks/useTelegram', () => ({
+  useTelegramStatus: vi.fn(),
+}))
+
 import { useSettings, useUpdateSettings } from '@/hooks/useSettings'
+import { useTelegramStatus } from '@/hooks/useTelegram'
 
 const saveMock = vi.fn()
 
@@ -29,12 +34,15 @@ function baseSettings(overrides: Partial<Settings> = {}): Settings {
   }
 }
 
-function renderTab(settings: Settings) {
+function renderTab(settings: Settings, telegramEnabled = false) {
   vi.mocked(useSettings).mockReturnValue({ data: settings } as ReturnType<typeof useSettings>)
   vi.mocked(useUpdateSettings).mockReturnValue({
     mutateAsync: saveMock,
     isPending: false,
   } as unknown as ReturnType<typeof useUpdateSettings>)
+  vi.mocked(useTelegramStatus).mockReturnValue({
+    data: { enabled: telegramEnabled, connected: false, botUsername: 'movingdesk_bot' },
+  } as unknown as ReturnType<typeof useTelegramStatus>)
   return render(<BookingTab />)
 }
 
@@ -80,5 +88,37 @@ describe('BookingTab', () => {
     fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
 
     expect(saveMock).toHaveBeenCalledWith(expect.objectContaining({ bookingEnabled: true }))
+  })
+})
+
+describe('BookingTab — Telegram booking link', () => {
+  beforeEach(() => {
+    saveMock.mockReset()
+  })
+
+  // The startapp deep link is how a client reaches the booking Mini App, so the
+  // owner has to be able to get hold of it.
+  it('offers the startapp link for the tenant once the bot is configured', () => {
+    renderTab(baseSettings({ bookingEnabled: true }), true)
+
+    expect(
+      screen.getByText('https://t.me/movingdesk_bot?startapp=best-movers'),
+    ).toBeInTheDocument()
+  })
+
+  it('stays hidden when the deployment has no Telegram bot', () => {
+    renderTab(baseSettings({ bookingEnabled: true }), false)
+
+    expect(screen.queryByText(/t\.me\//)).not.toBeInTheDocument()
+    expect(screen.queryByText(/your telegram booking link/i)).not.toBeInTheDocument()
+  })
+
+  // Same rule as the web link above: it does not work until booking is on.
+  it('cannot be copied while booking is switched off', () => {
+    renderTab(baseSettings({ bookingEnabled: false }), true)
+
+    for (const button of screen.getAllByRole('button', { name: /copy link/i })) {
+      expect(button).toBeDisabled()
+    }
   })
 })

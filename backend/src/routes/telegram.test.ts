@@ -44,7 +44,7 @@ vi.mock('../services/telegram.service.js', () => ({
   getTelegramStatus: (...a: unknown[]) => getTelegramStatusMock(...a),
   createLinkCode: (...a: unknown[]) => createLinkCodeMock(...a),
   unlinkTelegram: (...a: unknown[]) => unlinkTelegramMock(...a),
-  handleStartCommand: vi.fn(),
+  resolveStartCommand: vi.fn(),
 }))
 
 const { default: telegramRouter } = await import('./telegram.js')

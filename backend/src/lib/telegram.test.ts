@@ -5,6 +5,7 @@ const envValues = {
   TELEGRAM_BOT_USERNAME: '',
   TELEGRAM_WEBHOOK_SECRET: '',
   BACKEND_URL: 'https://api.movingdesk.test',
+  FRONTEND_URL: 'https://movingdesk.test',
 }
 
 vi.mock('./env.js', () => ({ env: envValues }))
@@ -34,10 +35,13 @@ vi.mock('grammy', () => ({
 
 const {
   assertTelegramConfigured,
+  bookingDeepLink,
+  bookingMiniAppUrl,
   isTelegramEnabled,
   sendTelegramMessage,
   telegramDeepLink,
   registerTelegramWebhook,
+  webBookingUrl,
 } = await import('./telegram.js')
 
 beforeEach(() => {
@@ -109,5 +113,29 @@ describe('telegramDeepLink', () => {
     envValues.TELEGRAM_BOT_USERNAME = 'movingdesk_bot'
 
     expect(telegramDeepLink('ABCD2345')).toBe('https://t.me/movingdesk_bot?start=ABCD2345')
+  })
+})
+
+describe('booking links', () => {
+  it('points the Mini App button at the booking page with the tenant attached', () => {
+    expect(bookingMiniAppUrl('best-movers')).toBe(
+      'https://movingdesk.test/book-app?tenant=best-movers',
+    )
+  })
+
+  it('builds the startapp link a company shares with clients', () => {
+    envValues.TELEGRAM_BOT_USERNAME = 'movingdesk_bot'
+
+    expect(bookingDeepLink('best-movers')).toBe(
+      'https://t.me/movingdesk_bot?startapp=best-movers',
+    )
+  })
+
+  it('escapes a slug rather than letting it break out of the query string', () => {
+    expect(bookingMiniAppUrl('a&b=c')).toBe('https://movingdesk.test/book-app?tenant=a%26b%3Dc')
+  })
+
+  it('falls back to the existing web booking page', () => {
+    expect(webBookingUrl('best-movers')).toBe('https://movingdesk.test/book/best-movers')
   })
 })

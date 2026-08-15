@@ -17,8 +17,15 @@ export interface TelegramThemeParams {
   secondary_bg_color?: string
 }
 
+export interface TelegramInitDataUnsafe {
+  // Present when the Mini App was opened through a deep link carrying a
+  // parameter — `t.me/<bot>?startapp=<value>`, or the payload of `/start`.
+  start_param?: string
+}
+
 export interface TelegramWebApp {
   initData: string
+  initDataUnsafe?: TelegramInitDataUnsafe
   colorScheme: 'light' | 'dark'
   themeParams: TelegramThemeParams
   ready: () => void

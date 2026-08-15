@@ -4,6 +4,7 @@ import { db } from '../db/index.js'
 import { telegramLinkCodes, users } from '../db/schema.js'
 import { isTelegramEnabled, telegramDeepLink } from '../lib/telegram.js'
 import { env } from '../lib/env.js'
+import { getPublicTenant } from './booking.service.js'
 
 // No 0/O/1/I: the owner reads this off one screen and types it into another.
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -140,6 +141,45 @@ export async function handleStartCommand(payload: string, chatId: string): Promi
       return `⌛ That code has expired. Codes last ${CODE_TTL_MINUTES} minutes — generate a fresh one in Settings → Integrations.`
     default:
       return `❌ That code is not valid or has already been used.\n\n${START_HELP}`
+  }
+}
+
+// `/start book_<slug>` is the client-facing entry point: a mover shares it, and
+// whoever taps it gets that company's booking form. It shares the /start
+// payload with owner linking, so the prefix is what tells the two apart — a
+// connect code can never contain an underscore (see CODE_ALPHABET).
+const BOOKING_PREFIX = 'book_'
+
+export type StartCommandReply =
+  | { kind: 'text'; text: string }
+  | { kind: 'booking'; text: string; slug: string; companyName: string }
+
+// Deliberately routed through getPublicTenant rather than a lookup of its own:
+// the booking_enabled gate and the slug resolution stay in one place, so this
+// channel cannot drift from /book/:slug.
+export async function resolveStartCommand(
+  payload: string,
+  chatId: string,
+): Promise<StartCommandReply> {
+  const trimmed = payload.trim()
+  if (!trimmed.startsWith(BOOKING_PREFIX)) {
+    return { kind: 'text', text: await handleStartCommand(trimmed, chatId) }
+  }
+
+  const slug = trimmed.slice(BOOKING_PREFIX.length)
+  const tenant = slug ? await getPublicTenant(slug) : null
+  if (!tenant) {
+    return {
+      kind: 'text',
+      text: '🚚 This booking link is not valid, or the company is not taking online bookings right now.',
+    }
+  }
+
+  return {
+    kind: 'booking',
+    text: `🚚 Book your move with ${tenant.name}. Tap below to open the booking form.`,
+    slug: tenant.slug,
+    companyName: tenant.name,
   }
 }
 
