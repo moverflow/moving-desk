@@ -59,9 +59,9 @@ export default function BookingMiniAppPage(): JSX.Element {
   }
 
   return (
-    // The page scrolls rather than filling a fixed height, so it needs the
-    // bottom inset as padding: without it the last field and the footer end up
-    // under Telegram's chrome with no way to scroll them clear.
+    // Tops the bottom padding up by whatever the device reserves for its home
+    // indicator, so the footer is not sitting on it. Declarative only — the page
+    // height is still the browser's business.
     <main className="min-h-screen bg-gray-50 px-4 pt-6 pb-[calc(1.5rem+var(--tg-safe-bottom))]">
       <div className="mx-auto w-full max-w-[560px]">
         <BookingCard slug={slug} tenant={tenant} />

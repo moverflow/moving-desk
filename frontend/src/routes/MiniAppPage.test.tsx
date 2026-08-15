@@ -8,10 +8,7 @@ import type { TelegramWebApp } from '@/lib/telegramWebApp'
 vi.mock('@/lib/telegramWebApp', () => ({
   loadTelegramWebApp: vi.fn(),
   applyTelegramTheme: vi.fn(),
-  applyTelegramViewport: vi.fn(() => releaseViewportMock),
 }))
-
-const releaseViewportMock = vi.fn()
 
 vi.mock('@/hooks/useAssistant', () => ({
   useAssistantSession: vi.fn(),
@@ -23,7 +20,7 @@ vi.mock('@/features/assistant/ChatView', () => ({
   default: ({ company }: { company: string }) => <div>chat for {company}</div>,
 }))
 
-import { applyTelegramTheme, applyTelegramViewport, loadTelegramWebApp } from '@/lib/telegramWebApp'
+import { applyTelegramTheme, loadTelegramWebApp } from '@/lib/telegramWebApp'
 import { useAssistantLink, useAssistantSession } from '@/hooks/useAssistant'
 
 const sessionMock = vi.fn()
@@ -66,9 +63,7 @@ function setup(options: SetupOptions = {}): void {
 beforeEach(() => {
   sessionMock.mockReset()
   linkMock.mockReset()
-  releaseViewportMock.mockClear()
   vi.mocked(applyTelegramTheme).mockClear()
-  vi.mocked(applyTelegramViewport).mockClear()
 })
 
 describe('MiniAppPage — bootstrap', () => {
@@ -90,33 +85,6 @@ describe('MiniAppPage — bootstrap', () => {
     await screen.findByText('chat for Acme Movers')
 
     expect(applyTelegramTheme).toHaveBeenCalled()
-  })
-
-  // The shell is sized from Telegram's reported viewport rather than 100vh, or
-  // its bottom edge ends up underneath Telegram's own chrome.
-  it('adopts the Telegram viewport, measured after expanding', async () => {
-    const bridge = webApp('user=%7B%7D&hash=abc')
-    setup({ bridge })
-    sessionMock.mockResolvedValue({ linked: true, company: 'Acme Movers', token: 't', user: {} })
-
-    render(<MiniAppPage />)
-    await screen.findByText('chat for Acme Movers')
-
-    expect(applyTelegramViewport).toHaveBeenCalledWith(bridge)
-    expect(vi.mocked(bridge.expand).mock.invocationCallOrder[0]).toBeLessThan(
-      vi.mocked(applyTelegramViewport).mock.invocationCallOrder[0],
-    )
-  })
-
-  it('stops following the viewport once the Mini App unmounts', async () => {
-    setup()
-    sessionMock.mockResolvedValue({ linked: true, company: 'Acme Movers', token: 't', user: {} })
-
-    const { unmount } = render(<MiniAppPage />)
-    await screen.findByText('chat for Acme Movers')
-    unmount()
-
-    expect(releaseViewportMock).toHaveBeenCalled()
   })
 
   // Opened in a plain browser there is no signed initData, so there is nothing
@@ -235,5 +203,36 @@ describe('MiniAppPage — linking', () => {
     await user.click(screen.getByRole('button', { name: /connect/i }))
 
     expect(screen.getByText(/connect your account/i)).toBeInTheDocument()
+  })
+})
+
+// Regression guard. Sizing the shell from a runtime viewport measurement made
+// focusing the composer rescale the page on real devices; bottom spacing is a
+// static padding instead, and the shell height is left to the browser.
+describe('MiniAppPage — layout stays static', () => {
+  it('sizes the shell with the viewport unit, not a measured pixel height', async () => {
+    setup()
+    sessionMock.mockResolvedValue({ linked: true, company: 'Acme Movers', token: 't', user: {} })
+
+    render(<MiniAppPage />)
+    await screen.findByText('chat for Acme Movers')
+
+    const shell = screen.getByRole('main')
+    expect(shell.className).toContain('h-screen')
+    expect(shell.getAttribute('style')).toBeNull()
+  })
+
+  // Checked against the real module, not the mock: the point is that no
+  // viewport-measuring helper exists for a caller to reach for in the first place.
+  it('exposes no viewport-measuring helper on the Telegram bridge module', async () => {
+    const actual = await vi.importActual<typeof import('@/lib/telegramWebApp')>(
+      '@/lib/telegramWebApp',
+    )
+
+    expect(Object.keys(actual).sort()).toEqual([
+      'applyTelegramTheme',
+      'loadTelegramWebApp',
+      'resetTelegramWebAppLoader',
+    ])
   })
 })

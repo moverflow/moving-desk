@@ -37,12 +37,12 @@
   --tg-secondary-bg: hsl(210 40% 96.1%);
 
   /*
-    Mini App geometry, overwritten by applyTelegramViewport() with what Telegram
-    reports. These defaults are what a plain browser gets: dvh already excludes
-    mobile browser chrome, and env() resolves to 0 unless the page opted into
-    drawing under the device's unsafe areas — which this one has not.
+    Extra room under the Mini App's bottom edge, on a device that reserves some.
+    Purely declarative: nothing measures the viewport or writes this at runtime,
+    so focusing an input cannot resize or rescale the page. It resolves to 0
+    wherever the browser has not reserved anything, which is why the rules that
+    use it add it to a static padding rather than relying on it alone.
   */
-  --tg-app-height: 100dvh;
   --tg-safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 

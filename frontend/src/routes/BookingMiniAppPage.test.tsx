@@ -7,7 +7,6 @@ import BookingMiniAppPage from './BookingMiniAppPage'
 
 vi.mock('@/lib/telegramWebApp', () => ({
   loadTelegramWebApp: vi.fn(),
-  applyTelegramViewport: vi.fn(() => vi.fn()),
 }))
 
 // The whole point of the feature is that this Mini App is another client of the
