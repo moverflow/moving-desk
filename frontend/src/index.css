@@ -35,6 +35,15 @@
   --tg-button: #1d9e75;
   --tg-button-text: #ffffff;
   --tg-secondary-bg: hsl(210 40% 96.1%);
+
+  /*
+    Mini App geometry, overwritten by applyTelegramViewport() with what Telegram
+    reports. These defaults are what a plain browser gets: dvh already excludes
+    mobile browser chrome, and env() resolves to 0 unless the page opted into
+    drawing under the device's unsafe areas — which this one has not.
+  */
+  --tg-app-height: 100dvh;
+  --tg-safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /*

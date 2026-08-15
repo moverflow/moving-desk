@@ -401,3 +401,29 @@ describe('ChatView — busy states', () => {
     expect(screen.getByText(/loading/i)).toBeInTheDocument()
   })
 })
+
+// Asserted on the class rather than a computed style because jsdom does not
+// resolve calc() against a CSS variable. The variable itself is covered in
+// telegramWebApp.test.ts; what matters here is that the chat consumes it.
+describe('ChatView — bottom spacing', () => {
+  it('pads the composer by the Telegram safe-area inset', () => {
+    setup()
+    render(<ChatView company="Acme Movers" />)
+
+    const composer = screen.getByLabelText(/message the assistant/i).parentElement
+    expect(composer?.className).toContain('pb-[calc(0.5rem+var(--tg-safe-bottom))]')
+  })
+
+  it('leaves room under the last message so it does not sit on the composer', () => {
+    setup({
+      transcript: {
+        messages: [{ id: 'm1', role: 'assistant', text: 'One job today.', results: [] }],
+        pendingAction: null,
+      },
+    })
+    render(<ChatView company="Acme Movers" />)
+
+    const scroller = screen.getByText('One job today.').closest('.overflow-y-auto')
+    expect(scroller?.className).toContain('pb-6')
+  })
+})

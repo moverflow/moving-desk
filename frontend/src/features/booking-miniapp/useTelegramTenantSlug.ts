@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { loadTelegramWebApp } from '@/lib/telegramWebApp'
+import { applyTelegramViewport, loadTelegramWebApp } from '@/lib/telegramWebApp'
 import { resolveTenantSlug } from './startParam'
 
 // null while the Telegram bridge is still loading, '' once it has settled
@@ -10,6 +10,7 @@ export function useTelegramTenantSlug(): string | null {
 
   useEffect(() => {
     let cancelled = false
+    let releaseViewport = (): void => {}
 
     async function boot(): Promise<void> {
       const webApp = await loadTelegramWebApp()
@@ -17,12 +18,16 @@ export function useTelegramTenantSlug(): string | null {
 
       webApp?.ready()
       webApp?.expand()
+      // After expand(), so the first measurement is of the size the form will
+      // actually occupy. Keeps the Book button clear of Telegram's chrome.
+      releaseViewport = applyTelegramViewport(webApp)
       setSlug(resolveTenantSlug(webApp, window.location) ?? '')
     }
 
     void boot()
     return () => {
       cancelled = true
+      releaseViewport()
     }
   }, [])
 
