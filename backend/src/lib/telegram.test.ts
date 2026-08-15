@@ -35,6 +35,7 @@ vi.mock('grammy', () => ({
 
 const {
   assertTelegramConfigured,
+  BOOKING_APP_SHORT_NAME,
   bookingDeepLink,
   bookingMiniAppUrl,
   isTelegramEnabled,
@@ -123,12 +124,27 @@ describe('booking links', () => {
     )
   })
 
-  it('builds the startapp link a company shares with clients', () => {
+  // A named Direct Link (BotFather /newapp), not the bot's Main Mini App: the
+  // Main slot also backs the profile's "Open App" button, which sends no
+  // start_param and would open the booking form with no company resolved.
+  it('builds the named Direct Link a company shares with clients', () => {
     envValues.TELEGRAM_BOT_USERNAME = 'movingdesk_bot'
 
     expect(bookingDeepLink('best-movers')).toBe(
-      'https://t.me/movingdesk_bot?startapp=best-movers',
+      'https://t.me/movingdesk_bot/book?startapp=best-movers',
     )
+  })
+
+  // The short name is what BotFather was told; drift between the two silently
+  // produces a link that 404s inside Telegram.
+  it('uses the short name the Mini App is registered under', () => {
+    expect(BOOKING_APP_SHORT_NAME).toBe('book')
+  })
+
+  it('escapes a slug in the shared link too', () => {
+    envValues.TELEGRAM_BOT_USERNAME = 'movingdesk_bot'
+
+    expect(bookingDeepLink('a&b=c')).toBe('https://t.me/movingdesk_bot/book?startapp=a%26b%3Dc')
   })
 
   it('escapes a slug rather than letting it break out of the query string', () => {

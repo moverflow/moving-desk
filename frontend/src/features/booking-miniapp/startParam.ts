@@ -3,8 +3,8 @@ import type { TelegramWebApp } from '@/lib/telegramWebApp'
 // Which company's booking form to show. The same page is reachable through
 // three entry points, and each one hands the slug over differently:
 //
-//   1. `t.me/<bot>?startapp=<slug>` — Telegram opens the Main Mini App and puts
-//      the value in initDataUnsafe.start_param.
+//   1. `t.me/<bot>/book?startapp=<slug>` — Telegram opens the named Mini App
+//      and puts the value in initDataUnsafe.start_param.
 //   2. the same link, read off the URL Telegram loaded the WebView with
 //      (`#tgWebAppStartParam=<slug>`) — the SDK's own source, used directly here
 //      as a fallback for when the bridge is present but has not parsed yet.
