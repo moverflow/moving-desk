@@ -9,6 +9,7 @@ import { logger } from './lib/logger.js'
 import { UPLOADS_ROOT } from './lib/r2.js'
 import { captureError } from './lib/sentry.js'
 import type { AppVariables } from './types/index.js'
+import assistant from './routes/assistant.js'
 import auth from './routes/auth.js'
 import billing from './routes/billing.js'
 import book from './routes/book.js'
@@ -69,6 +70,7 @@ app.route('/leads', leads)
 app.route('/notifications', notifications)
 app.route('/feedback', feedback)
 app.route('/telegram', telegram)
+app.route('/assistant', assistant)
 
 const UPLOAD_MIME: Record<string, string> = {
   jpg: 'image/jpeg',

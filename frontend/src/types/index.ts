@@ -358,6 +358,90 @@ export interface TelegramLinkCode {
   expiresAt: string
 }
 
+// ─── Telegram Mini App assistant ──────────────────────────────────────────────
+
+export type AssistantToolName =
+  | 'listUpcomingJobs'
+  | 'listUnpaidInvoices'
+  | 'findClient'
+  | 'createJob'
+  | 'setJobStatus'
+
+// Mirrors JobSummary in the backend's assistant contract. Deliberately its own
+// type rather than a reuse of Order: the assistant speaks in the contract's
+// shapes, and those are what arrive here.
+export interface AssistantJob {
+  id: string
+  reference: string
+  status: string
+  moveDate: string
+  fromAddress: string
+  toAddress: string
+  homeSize: string
+  packing: boolean
+  totalPrice: number
+  clientName: string | null
+  clientPhone: string | null
+  crewName: string | null
+}
+
+export interface AssistantInvoice {
+  id: string
+  number: string
+  status: string
+  totalPrice: number
+  moveDate: string
+  clientName: string | null
+  clientPhone: string | null
+  sentAt: string | null
+  dueLabel: string
+}
+
+export interface AssistantClient {
+  id: string
+  name: string
+  phone: string | null
+  email: string | null
+  jobCount: number
+}
+
+export interface AssistantToolResult {
+  tool: AssistantToolName
+  ok: boolean
+  data: unknown
+  error: string | null
+}
+
+export interface AssistantMessage {
+  id: string
+  role: 'user' | 'assistant'
+  text: string
+  results: AssistantToolResult[]
+}
+
+// A write the assistant proposed. Nothing has happened yet — the user confirms
+// or declines, and only then does the backend run it.
+export interface AssistantPendingAction {
+  messageId: string
+  toolUseId: string
+  tool: AssistantToolName
+  summary: string
+}
+
+export interface AssistantTranscript {
+  messages: AssistantMessage[]
+  pendingAction: AssistantPendingAction | null
+}
+
+export interface AssistantSession {
+  linked: true
+  token: string
+  user: { id: string; name: string; role: string }
+  company: string
+}
+
+export type AssistantSessionResponse = AssistantSession | { linked: false }
+
 // Named AppNotification because `Notification` is a DOM global — an exported
 // interface with that name would shadow it wherever this module is imported.
 export interface AppNotification {

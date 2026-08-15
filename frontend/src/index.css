@@ -22,6 +22,19 @@
   --color-ring: hsl(222.2 84% 4.9%);
   --color-brand: #1d9e75;
   --radius: 0.5rem;
+
+  /*
+    Telegram Mini App palette. Defaults so /assistant is legible when opened in
+    a plain browser; applyTelegramTheme() overwrites them with the colours
+    Telegram reports, so the Mini App matches the user's Telegram theme.
+  */
+  --tg-bg: hsl(0 0% 100%);
+  --tg-text: hsl(222.2 84% 4.9%);
+  --tg-hint: hsl(215.4 16.3% 46.9%);
+  --tg-link: #1d9e75;
+  --tg-button: #1d9e75;
+  --tg-button-text: #ffffff;
+  --tg-secondary-bg: hsl(210 40% 96.1%);
 }
 
 /*
