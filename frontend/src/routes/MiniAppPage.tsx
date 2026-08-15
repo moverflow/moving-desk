@@ -4,11 +4,7 @@ import { ApiError } from '@/lib/api'
 import { useAssistantLink, useAssistantSession } from '@/hooks/useAssistant'
 import ChatView from '@/features/assistant/ChatView'
 import LinkingPanel from '@/features/assistant/LinkingPanel'
-import {
-  applyTelegramTheme,
-  applyTelegramViewport,
-  loadTelegramWebApp,
-} from '@/lib/telegramWebApp'
+import { applyTelegramTheme, loadTelegramWebApp } from '@/lib/telegramWebApp'
 
 // The Telegram Mini App entry point, opened from the bot's menu button or its
 // /assistant command. It runs inside Telegram's WebView, which is where the
@@ -40,7 +36,6 @@ export default function MiniAppPage(): JSX.Element {
   // initData for a MovingDesk token.
   useEffect(() => {
     let cancelled = false
-    let releaseViewport = (): void => {}
 
     async function boot(): Promise<void> {
       const webApp = await loadTelegramWebApp()
@@ -55,9 +50,6 @@ export default function MiniAppPage(): JSX.Element {
 
       webApp.ready()
       webApp.expand()
-      // After expand(): expanding changes the viewport, and the first
-      // measurement should be of the size the chat will actually occupy.
-      releaseViewport = applyTelegramViewport(webApp)
       setInitData(webApp.initData)
 
       try {
@@ -72,7 +64,6 @@ export default function MiniAppPage(): JSX.Element {
     void boot()
     return () => {
       cancelled = true
-      releaseViewport()
     }
     // Deliberately once per mount: re-running would start a second session
     // exchange, and the mutation object is a new reference on every render.
@@ -88,7 +79,7 @@ export default function MiniAppPage(): JSX.Element {
     link.error instanceof ApiError ? link.error.message : link.error ? 'Could not connect.' : null
 
   return (
-    <main className="h-[var(--tg-app-height)] bg-[var(--tg-bg)] text-[var(--tg-text)]">
+    <main className="h-screen bg-[var(--tg-bg)] text-[var(--tg-text)]">
       {stage.name === 'starting' && <Centered title="Opening assistant…" body="One moment." />}
 
       {stage.name === 'outside-telegram' && (

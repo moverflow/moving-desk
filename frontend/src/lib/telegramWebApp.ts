@@ -23,16 +23,6 @@ export interface TelegramInitDataUnsafe {
   start_param?: string
 }
 
-export interface TelegramInsets {
-  top?: number
-  bottom?: number
-  left?: number
-  right?: number
-}
-
-// Only the events this app subscribes to. Telegram defines more.
-export type TelegramEvent = 'viewportChanged' | 'safeAreaChanged' | 'contentSafeAreaChanged'
-
 export interface TelegramWebApp {
   initData: string
   initDataUnsafe?: TelegramInitDataUnsafe
@@ -40,17 +30,6 @@ export interface TelegramWebApp {
   themeParams: TelegramThemeParams
   ready: () => void
   expand: () => void
-  // Everything below arrived in Bot API 6.x–8.0 and is absent in older
-  // Telegram clients, so each one is optional and separately guarded.
-  viewportHeight?: number
-  viewportStableHeight?: number
-  // The device's own unusable edges — notch, home indicator.
-  safeAreaInset?: TelegramInsets
-  // Telegram's own chrome, measured inside safeAreaInset rather than from the
-  // window edge, which is why the two are added together below.
-  contentSafeAreaInset?: TelegramInsets
-  onEvent?: (event: TelegramEvent, handler: () => void) => void
-  offEvent?: (event: TelegramEvent, handler: () => void) => void
   HapticFeedback?: {
     impactOccurred: (style: 'light' | 'medium' | 'heavy') => void
     notificationOccurred: (type: 'error' | 'success' | 'warning') => void
@@ -110,60 +89,6 @@ export function applyTelegramTheme(webApp: TelegramWebApp | null): void {
 
   for (const [name, value] of Object.entries(vars)) {
     if (value) root.style.setProperty(name, value)
-  }
-}
-
-// How tall the Mini App actually is, and how much of its bottom edge is not
-// really usable. 100vh is the wrong answer to the first question inside
-// Telegram: the WebView is laid out full-screen, but Telegram draws its own
-// chrome over the bottom of it and the device adds a home indicator under that.
-// Trusting 100vh puts the composer underneath both.
-//
-// Written as CSS variables rather than React state so the values are available
-// to plain classNames, and so a re-render is not needed to follow a resize.
-const HEIGHT_VAR = '--tg-app-height'
-const SAFE_BOTTOM_VAR = '--tg-safe-bottom'
-
-function bottomInset(webApp: TelegramWebApp): number {
-  // Additive: contentSafeAreaInset is measured inside safeAreaInset, so the
-  // distance from the window edge to usable content is the sum of the two.
-  return (webApp.safeAreaInset?.bottom ?? 0) + (webApp.contentSafeAreaInset?.bottom ?? 0)
-}
-
-function writeViewportVars(webApp: TelegramWebApp): void {
-  const root = document.documentElement
-
-  // The stable height deliberately ignores the on-screen keyboard, so the shell
-  // does not resize under the user mid-sentence. The keyboard is the browser's
-  // problem — it scrolls the focused input into view on its own.
-  const height = webApp.viewportStableHeight ?? webApp.viewportHeight
-  if (height && height > 0) root.style.setProperty(HEIGHT_VAR, `${height}px`)
-
-  const inset = bottomInset(webApp)
-  // Left alone at 0 so the CSS fallback (env(safe-area-inset-bottom)) keeps
-  // whatever the browser worked out for itself on an older Telegram client.
-  if (inset > 0) root.style.setProperty(SAFE_BOTTOM_VAR, `${inset}px`)
-}
-
-// Returns a cleanup that removes the listeners, for a caller unmounting the
-// Mini App. Safe to call with no bridge and on a Telegram client too old to
-// report any of this — it just leaves the CSS defaults in place.
-export function applyTelegramViewport(webApp: TelegramWebApp | null): () => void {
-  if (!webApp) return () => {}
-
-  writeViewportVars(webApp)
-
-  const handler = (): void => writeViewportVars(webApp)
-  const events: TelegramEvent[] = ['viewportChanged', 'safeAreaChanged', 'contentSafeAreaChanged']
-
-  const { onEvent, offEvent } = webApp
-  if (!onEvent) return () => {}
-
-  for (const event of events) onEvent.call(webApp, event, handler)
-
-  return () => {
-    if (!offEvent) return
-    for (const event of events) offEvent.call(webApp, event, handler)
   }
 }
 

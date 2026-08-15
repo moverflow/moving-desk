@@ -403,15 +403,24 @@ describe('ChatView — busy states', () => {
 })
 
 // Asserted on the class rather than a computed style because jsdom does not
-// resolve calc() against a CSS variable. The variable itself is covered in
-// telegramWebApp.test.ts; what matters here is that the chat consumes it.
+// resolve calc() against a CSS variable.
 describe('ChatView — bottom spacing', () => {
-  it('pads the composer by the Telegram safe-area inset', () => {
+  it('pads the composer clear of the bottom edge', () => {
     setup()
     render(<ChatView company="Acme Movers" />)
 
     const composer = screen.getByLabelText(/message the assistant/i).parentElement
-    expect(composer?.className).toContain('pb-[calc(0.5rem+var(--tg-safe-bottom))]')
+    expect(composer?.className).toContain('pb-[calc(1rem+var(--tg-safe-bottom))]')
+  })
+
+  // The spacing is a static padding plus an optional inset. Nothing measures the
+  // viewport, because doing so is what made focusing the input rescale the page.
+  it('does not depend on any runtime viewport measurement', () => {
+    setup()
+    render(<ChatView company="Acme Movers" />)
+
+    const composer = screen.getByLabelText(/message the assistant/i).parentElement
+    expect(composer?.className).not.toContain('tg-app-height')
   })
 
   it('leaves room under the last message so it does not sit on the composer', () => {

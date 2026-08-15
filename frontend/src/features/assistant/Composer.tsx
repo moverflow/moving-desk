@@ -29,12 +29,12 @@ export default function Composer({ onSend, disabled, placeholder }: ComposerProp
     }
   }
 
-  // The extra bottom padding clears Telegram's chrome and the device's home
-  // indicator, which otherwise sit on top of the send button. It is added to the
-  // same 0.5rem the other three sides get, so the box is unchanged when the
-  // inset is 0 — in a browser, or on a Telegram client too old to report one.
+  // Bottom padding so the send button is not flush against the edge of the
+  // screen. Mostly the static 1rem: --tg-safe-bottom is 0 unless the browser has
+  // actually reserved space for a home indicator, so it tops the gap up on the
+  // devices that need it rather than being the whole of it.
   return (
-    <div className="flex items-end gap-2 border-t border-black/10 bg-[var(--tg-bg)] p-2 pb-[calc(0.5rem+var(--tg-safe-bottom))]">
+    <div className="flex items-end gap-2 border-t border-black/10 bg-[var(--tg-bg)] p-2 pb-[calc(1rem+var(--tg-safe-bottom))]">
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value.slice(0, MAX_LENGTH))}
