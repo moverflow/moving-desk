@@ -53,6 +53,26 @@ export function miniAppUrl(): string {
   return `${env.FRONTEND_URL}/assistant`
 }
 
+// The client-facing booking Mini App. The slug rides in the query string for
+// the bot-button route (`/start book_<slug>`); when the same page is opened as
+// the bot's Main Mini App via `?startapp=<slug>`, Telegram supplies the slug as
+// start_param instead and the page reads it from there.
+export function bookingMiniAppUrl(slug: string): string {
+  return `${env.FRONTEND_URL}/book-app?tenant=${encodeURIComponent(slug)}`
+}
+
+// The link an owner shares with clients. `startapp` opens the bot's Main Mini
+// App directly — no chat, no /start — with the slug as start_param.
+export function bookingDeepLink(slug: string): string {
+  return `https://t.me/${env.TELEGRAM_BOT_USERNAME}?startapp=${encodeURIComponent(slug)}`
+}
+
+// Same page, opened in a browser. Used when Telegram cannot be handed a
+// web_app button because the frontend is not on https.
+export function webBookingUrl(slug: string): string {
+  return `${env.FRONTEND_URL}/book/${slug}`
+}
+
 // Telegram only accepts an https URL for a web_app button, so a local frontend
 // cannot be registered as one. Checked here rather than at the call sites so the
 // bot's menu button and its /assistant reply agree on when it is available.

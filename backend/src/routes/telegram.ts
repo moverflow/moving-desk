@@ -2,12 +2,19 @@ import { Hono } from 'hono'
 import { webhookCallback } from 'grammy'
 import { env } from '../lib/env.js'
 import { logger } from '../lib/logger.js'
-import { getBot, isMiniAppAvailable, isTelegramEnabled, miniAppUrl } from '../lib/telegram.js'
+import {
+  bookingMiniAppUrl,
+  getBot,
+  isMiniAppAvailable,
+  isTelegramEnabled,
+  miniAppUrl,
+  webBookingUrl,
+} from '../lib/telegram.js'
 import { authMiddleware, requireOwner } from '../middleware/auth.js'
 import {
   createLinkCode,
   getTelegramStatus,
-  handleStartCommand,
+  resolveStartCommand,
   unlinkTelegram,
 } from '../services/telegram.service.js'
 import type { AppVariables } from '../types/index.js'
@@ -41,8 +48,28 @@ const bot = getBot()
 
 if (bot) {
   bot.command('start', async (ctx) => {
-    const reply = await handleStartCommand(ctx.match, String(ctx.chat.id))
-    await ctx.reply(reply, { link_preview_options: { is_disabled: true } })
+    const reply = await resolveStartCommand(ctx.match, String(ctx.chat.id))
+
+    if (reply.kind === 'booking' && isMiniAppAvailable()) {
+      await ctx.reply(reply.text, {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '📦 Book a move', web_app: { url: bookingMiniAppUrl(reply.slug) } }],
+          ],
+        },
+      })
+      return
+    }
+
+    // Telegram refuses a web_app button on a non-https frontend, so a local or
+    // preview deployment falls back to the browser booking page rather than
+    // dropping the request.
+    if (reply.kind === 'booking') {
+      await ctx.reply(`${reply.text}\n\n${webBookingUrl(reply.slug)}`)
+      return
+    }
+
+    await ctx.reply(reply.text, { link_preview_options: { is_disabled: true } })
   })
 
   // Opens the Mini App chat UI. The button is the only way in — a plain link
