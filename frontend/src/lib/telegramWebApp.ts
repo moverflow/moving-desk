@@ -19,7 +19,7 @@ export interface TelegramThemeParams {
 
 export interface TelegramInitDataUnsafe {
   // Present when the Mini App was opened through a deep link carrying a
-  // parameter — `t.me/<bot>?startapp=<value>`, or the payload of `/start`.
+  // parameter — `t.me/<bot>/<app>?startapp=<value>`, or the payload of `/start`.
   start_param?: string
 }
 

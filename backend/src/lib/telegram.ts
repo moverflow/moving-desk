@@ -54,17 +54,26 @@ export function miniAppUrl(): string {
 }
 
 // The client-facing booking Mini App. The slug rides in the query string for
-// the bot-button route (`/start book_<slug>`); when the same page is opened as
-// the bot's Main Mini App via `?startapp=<slug>`, Telegram supplies the slug as
-// start_param instead and the page reads it from there.
+// the bot-button route (`/start book_<slug>`); when the same page is opened
+// through the Direct Link below, Telegram supplies the slug as start_param
+// instead and the page reads it from there.
 export function bookingMiniAppUrl(slug: string): string {
   return `${env.FRONTEND_URL}/book-app?tenant=${encodeURIComponent(slug)}`
 }
 
-// The link an owner shares with clients. `startapp` opens the bot's Main Mini
-// App directly — no chat, no /start — with the slug as start_param.
+// The short name this Mini App is registered under in BotFather (/newapp).
+// Changing it here means re-registering there, and vice versa. Mirrored in the
+// frontend's BookingTab, which builds the same link for the owner to copy.
+export const BOOKING_APP_SHORT_NAME = 'book'
+
+// The link an owner shares with clients. A named Direct Link rather than the
+// bot's Main Mini App: the Main slot also backs the "Open App" button on the
+// bot's public profile, which carries no start_param and would drop a visitor
+// on the booking form's "no company in this link" state. A named app has no
+// such second role, and leaves the Main slot free for the assistant later.
 export function bookingDeepLink(slug: string): string {
-  return `https://t.me/${env.TELEGRAM_BOT_USERNAME}?startapp=${encodeURIComponent(slug)}`
+  const bot = env.TELEGRAM_BOT_USERNAME
+  return `https://t.me/${bot}/${BOOKING_APP_SHORT_NAME}?startapp=${encodeURIComponent(slug)}`
 }
 
 // Same page, opened in a browser. Used when Telegram cannot be handed a

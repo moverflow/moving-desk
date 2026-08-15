@@ -16,7 +16,7 @@ function bridge(startParam?: string): TelegramWebApp {
 const NO_URL = { search: '', hash: '' }
 
 describe('resolveTenantSlug — start_param', () => {
-  // AC: opening t.me/<bot>?startapp=<slug> scopes the form to that tenant.
+  // AC: opening t.me/<bot>/book?startapp=<slug> scopes the form to that tenant.
   it('reads the slug Telegram passed as start_param', () => {
     expect(resolveTenantSlug(bridge('best-movers'), NO_URL)).toBe('best-movers')
   })

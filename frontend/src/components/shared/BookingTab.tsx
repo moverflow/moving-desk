@@ -52,12 +52,17 @@ interface TelegramBookingLinkProps {
   bookingIsLive: boolean
 }
 
+// The short name the booking Mini App is registered under in BotFather. Must
+// match BOOKING_APP_SHORT_NAME in the backend's lib/telegram.ts, which builds
+// the same link for the bot's own replies.
+const BOOKING_APP_SHORT_NAME = 'book'
+
 // The same booking request, reached through the MovingDesk Telegram bot instead
-// of a browser. `startapp` opens the Mini App straight away, so a client taps
-// once and lands on the form.
+// of a browser. A Direct Link to the named Mini App, so one tap opens the form
+// with the company already resolved from `startapp`.
 function TelegramBookingLink({ slug, botUsername, bookingIsLive }: TelegramBookingLinkProps): JSX.Element {
   const [copied, setCopied] = useState(false)
-  const url = `https://t.me/${botUsername}?startapp=${slug}`
+  const url = `https://t.me/${botUsername}/${BOOKING_APP_SHORT_NAME}?startapp=${slug}`
 
   async function handleCopy(): Promise<void> {
     await navigator.clipboard.writeText(url)

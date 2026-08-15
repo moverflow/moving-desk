@@ -96,13 +96,15 @@ describe('BookingTab — Telegram booking link', () => {
     saveMock.mockReset()
   })
 
-  // The startapp deep link is how a client reaches the booking Mini App, so the
-  // owner has to be able to get hold of it.
-  it('offers the startapp link for the tenant once the bot is configured', () => {
+  // The Direct Link is how a client reaches the booking Mini App, so the owner
+  // has to be able to get hold of it. The `/book` segment is the short name the
+  // app is registered under in BotFather — without it Telegram has no app to
+  // open, so it is part of what this asserts.
+  it('offers the named Direct Link for the tenant once the bot is configured', () => {
     renderTab(baseSettings({ bookingEnabled: true }), true)
 
     expect(
-      screen.getByText('https://t.me/movingdesk_bot?startapp=best-movers'),
+      screen.getByText('https://t.me/movingdesk_bot/book?startapp=best-movers'),
     ).toBeInTheDocument()
   })
 

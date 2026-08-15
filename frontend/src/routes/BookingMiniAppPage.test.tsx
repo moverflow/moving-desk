@@ -96,7 +96,7 @@ beforeEach(() => {
 })
 
 describe('BookingMiniAppPage — tenant resolution', () => {
-  // AC: opening t.me/<bot>?startapp=<slug> shows a form scoped to that tenant,
+  // AC: opening t.me/<bot>/book?startapp=<slug> shows a form scoped to that tenant,
   // with no login step in the way.
   it('scopes the booking form to the slug from start_param', async () => {
     setup({ startParam: 'best-movers' })
